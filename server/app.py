@@ -181,3 +181,9 @@ async def live(ws: WebSocket):
 @app.get("/")
 def dashboard():
     return FileResponse(Path(__file__).parent / "dashboard.html")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # 0.0.0.0 so the ESP32 can reach it on the LAN

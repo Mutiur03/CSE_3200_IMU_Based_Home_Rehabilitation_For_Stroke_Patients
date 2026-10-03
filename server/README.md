@@ -9,7 +9,7 @@ No processing, assessment, or Unity output yet.
 cd server
 python -m venv .venv
 .venv/Scripts/pip install -r requirements.txt    # Windows; use .venv/bin/pip on Linux/macOS
-.venv/Scripts/uvicorn app:app --host 0.0.0.0 --port 8000
+.venv/Scripts/python app.py    # or: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 - Dashboard: `http://<pc-ip>:8000/`
