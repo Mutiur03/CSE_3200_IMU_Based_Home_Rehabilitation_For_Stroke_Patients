@@ -1,0 +1,810 @@
+[gd_scene format=3 uid="uid://cll8desdmytut"]
+
+[ext_resource type="Script" uid="uid://bwawi2bdys7vs" path="res://main.gd" id="1_main"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
+sky_top_color = Color(0.22, 0.48, 0.85, 1)
+sky_horizon_color = Color(0.92, 0.72, 0.52, 1)
+ground_bottom_color = Color(0.15, 0.28, 0.12, 1)
+ground_horizon_color = Color(0.45, 0.58, 0.35, 1)
+sun_angle_max = 35.0
+sun_curve = 0.1
+
+[sub_resource type="Sky" id="Sky_env"]
+sky_material = SubResource("ProceduralSkyMaterial_sky")
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 2
+sky = SubResource("Sky_env")
+ambient_light_source = 3
+ambient_light_color = Color(0.85, 0.78, 0.65, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 3
+tonemap_white = 6.0
+ssao_enabled = true
+ssao_radius = 1.5
+ssao_intensity = 1.2
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.8
+glow_bloom = 0.15
+glow_blend_mode = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grass"]
+albedo_color = Color(0.25, 0.55, 0.18, 1)
+roughness = 0.85
+metallic_specular = 0.15
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_grass"]
+material = SubResource("StandardMaterial3D_grass")
+size = Vector2(25, 25)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wood"]
+albedo_color = Color(0.58, 0.36, 0.18, 1)
+roughness = 0.55
+metallic_specular = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_table_edge"]
+albedo_color = Color(0.42, 0.26, 0.12, 1)
+roughness = 0.45
+metallic = 0.15
+metallic_specular = 0.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pot_rim_glow"]
+albedo_color = Color(0.95, 0.55, 0.25, 1)
+roughness = 0.4
+metallic = 0.3
+emission_enabled = true
+emission = Color(0.9, 0.45, 0.15, 1)
+emission_energy_multiplier = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_leg_accent"]
+albedo_color = Color(0.48, 0.30, 0.15, 1)
+roughness = 0.5
+metallic = 0.1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tabletop"]
+material = SubResource("StandardMaterial3D_wood")
+top_radius = 0.85
+bottom_radius = 0.85
+height = 0.06
+
+[sub_resource type="TorusMesh" id="TorusMesh_table_edge"]
+material = SubResource("StandardMaterial3D_table_edge")
+inner_radius = 0.82
+outer_radius = 0.88
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_leg"]
+material = SubResource("StandardMaterial3D_leg_accent")
+top_radius = 0.04
+bottom_radius = 0.05
+height = 0.42
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pot"]
+albedo_color = Color(0.78, 0.38, 0.18, 1)
+roughness = 0.6
+metallic_specular = 0.25
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pot"]
+material = SubResource("StandardMaterial3D_pot")
+top_radius = 0.38
+bottom_radius = 0.26
+height = 0.45
+
+[sub_resource type="TorusMesh" id="TorusMesh_rim"]
+material = SubResource("StandardMaterial3D_pot_rim_glow")
+inner_radius = 0.36
+outer_radius = 0.42
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soil"]
+albedo_color = Color(0.28, 0.18, 0.10, 1)
+roughness = 0.92
+metallic_specular = 0.05
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_soil"]
+material = SubResource("StandardMaterial3D_soil")
+top_radius = 0.36
+bottom_radius = 0.34
+height = 0.08
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stem"]
+albedo_color = Color(0.2, 0.82, 0.32, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_stem"]
+material = SubResource("StandardMaterial3D_stem")
+top_radius = 0.022
+bottom_radius = 0.035
+height = 0.42
+
+[sub_resource type="BoxMesh" id="BoxMesh_leaf"]
+material = SubResource("StandardMaterial3D_stem")
+size = Vector3(0.14, 0.02, 0.07)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_halo"]
+transparency = 1
+albedo_color = Color(0.3, 0.85, 1, 0.9)
+emission_enabled = true
+emission = Color(0.3, 0.85, 1, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="TorusMesh" id="TorusMesh_halo"]
+material = SubResource("StandardMaterial3D_halo")
+inner_radius = 0.03
+outer_radius = 0.045
+
+[sub_resource type="ImmediateMesh" id="ImmediateMesh_trail"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_trowel"]
+albedo_color = Color(0.55, 0.38, 0.2, 1)
+roughness = 0.5
+metallic = 0.3
+
+[sub_resource type="PrismMesh" id="PrismMesh_trowel"]
+material = SubResource("StandardMaterial3D_trowel")
+size = Vector3(0.035, 0.05, 0.02)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tool_can"]
+albedo_color = Color(0.3, 0.6, 0.9, 1)
+roughness = 0.4
+metallic = 0.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tool_can"]
+material = SubResource("StandardMaterial3D_tool_can")
+top_radius = 0.015
+bottom_radius = 0.022
+height = 0.045
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shield"]
+albedo_color = Color(0.3, 0.8, 0.95, 0.7)
+transparency = 1
+roughness = 0.3
+metallic = 0.4
+emission_enabled = true
+emission = Color(0.2, 0.7, 0.9, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_shield"]
+material = SubResource("StandardMaterial3D_shield")
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.006
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flower"]
+albedo_color = Color(0.95, 0.35, 0.65, 1)
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.9, 0.3, 0.6, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="SphereMesh" id="SphereMesh_flower"]
+material = SubResource("StandardMaterial3D_flower")
+radius = 0.06
+height = 0.05
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soil_mound"]
+albedo_color = Color(0.38, 0.25, 0.13, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="SphereMesh_soil_mound"]
+material = SubResource("StandardMaterial3D_soil_mound")
+radius = 0.04
+height = 0.035
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_seed"]
+albedo_color = Color(0.95, 0.78, 0.15, 1)
+roughness = 0.35
+metallic = 0.4
+emission_enabled = true
+emission = Color(0.9, 0.7, 0.1, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_planted_seed"]
+material = SubResource("StandardMaterial3D_seed")
+radius = 0.025
+height = 0.02
+
+[sub_resource type="SphereMesh" id="SphereMesh_seed"]
+material = SubResource("StandardMaterial3D_seed")
+radius = 0.06
+height = 0.08
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_can"]
+albedo_color = Color(0.3, 0.55, 0.85, 1)
+roughness = 0.4
+metallic = 0.5
+emission_enabled = true
+emission = Color(0.25, 0.5, 0.8, 1)
+emission_energy_multiplier = 0.3
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_can"]
+material = SubResource("StandardMaterial3D_can")
+top_radius = 0.04
+bottom_radius = 0.06
+height = 0.12
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flower"]
+albedo_color = Color(0.95, 0.35, 0.65, 1)
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.9, 0.3, 0.6, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="SphereMesh" id="SphereMesh_flower"]
+material = SubResource("StandardMaterial3D_flower")
+radius = 0.06
+height = 0.05
+
+[node name="Main" type="Node3D" unique_id=225230415]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 4, 2)
+light_color = Color(1, 0.94, 0.82, 1)
+light_energy = 1.4
+shadow_enabled = true
+shadow_blur = 1.5
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, 0.353553, -0.353553, 0, 0.707107, 0.707107, 0.5, -0.612372, 0.612372, 0, 3, -2)
+light_color = Color(0.6, 0.75, 1, 1)
+light_energy = 0.35
+shadow_enabled = false
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.642788, 0.766044, 0, -0.766044, 0.642788, 0, 1.56, 1.01)
+current = true
+fov = 50.0
+
+[node name="GardenEnvironment" type="Node3D" parent="."]
+
+[node name="Lawn" type="MeshInstance3D" parent="GardenEnvironment"]
+mesh = SubResource("PlaneMesh_grass")
+
+[node name="PottingBench" type="Node3D" parent="."]
+
+[node name="TableTop" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.41, 0)
+mesh = SubResource("CylinderMesh_tabletop")
+
+[node name="TableEdge" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.41, 0)
+mesh = SubResource("TorusMesh_table_edge")
+
+[node name="Leg1" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.21, -0.55)
+mesh = SubResource("CylinderMesh_leg")
+
+[node name="Leg2" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 0.21, -0.55)
+mesh = SubResource("CylinderMesh_leg")
+
+[node name="Leg3" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.21, 0.55)
+mesh = SubResource("CylinderMesh_leg")
+
+[node name="Leg4" type="MeshInstance3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 0.21, 0.55)
+mesh = SubResource("CylinderMesh_leg")
+
+[node name="PlantContainer" type="Node3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44, 0)
+
+[node name="PotBody" type="MeshInstance3D" parent="PottingBench/PlantContainer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.215, 0)
+mesh = SubResource("CylinderMesh_pot")
+
+[node name="PotRim" type="MeshInstance3D" parent="PottingBench/PlantContainer"]
+mesh = SubResource("TorusMesh_rim")
+
+[node name="SoilSurface" type="MeshInstance3D" parent="PottingBench/PlantContainer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.025, 0)
+mesh = SubResource("CylinderMesh_soil")
+
+[node name="SoilMounds" type="Node3D" parent="PottingBench/PlantContainer"]
+
+[node name="Mound1" type="MeshInstance3D" parent="PottingBench/PlantContainer/SoilMounds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.01, 0.10)
+visible = false
+mesh = SubResource("SphereMesh_soil_mound")
+
+[node name="Mound2" type="MeshInstance3D" parent="PottingBench/PlantContainer/SoilMounds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.01, 0.10)
+visible = false
+mesh = SubResource("SphereMesh_soil_mound")
+
+[node name="Mound3" type="MeshInstance3D" parent="PottingBench/PlantContainer/SoilMounds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0, 0.01, 0.15)
+visible = false
+mesh = SubResource("SphereMesh_soil_mound")
+
+[node name="Mound4" type="MeshInstance3D" parent="PottingBench/PlantContainer/SoilMounds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.08, 0.01, 0.0)
+visible = false
+mesh = SubResource("SphereMesh_soil_mound")
+
+[node name="Mound5" type="MeshInstance3D" parent="PottingBench/PlantContainer/SoilMounds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08, 0.01, 0.0)
+visible = false
+mesh = SubResource("SphereMesh_soil_mound")
+
+[node name="PlantedSeeds" type="Node3D" parent="PottingBench/PlantContainer"]
+
+[node name="Seed1" type="MeshInstance3D" parent="PottingBench/PlantContainer/PlantedSeeds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.08, 0.01, 0.08)
+visible = false
+mesh = SubResource("SphereMesh_planted_seed")
+
+[node name="Seed2" type="MeshInstance3D" parent="PottingBench/PlantContainer/PlantedSeeds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.08, 0.01, 0.08)
+visible = false
+mesh = SubResource("SphereMesh_planted_seed")
+
+[node name="Seed3" type="MeshInstance3D" parent="PottingBench/PlantContainer/PlantedSeeds"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0, 0.01, 0.12)
+visible = false
+mesh = SubResource("SphereMesh_planted_seed")
+
+[node name="StemContainer" type="Node3D" parent="PottingBench/PlantContainer"]
+
+[node name="Stem" type="MeshInstance3D" parent="PottingBench/PlantContainer/StemContainer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0)
+mesh = SubResource("CylinderMesh_stem")
+
+[node name="Foliage" type="Node3D" parent="PottingBench/PlantContainer/StemContainer"]
+
+[node name="Leaf1" type="MeshInstance3D" parent="PottingBench/PlantContainer/StemContainer/Foliage"]
+transform = Transform3D(0.796035, -0.605249, 0, 0.605249, 0.796035, 0, 0, 0, 1, -0.06, 0.18, 0)
+mesh = SubResource("BoxMesh_leaf")
+
+[node name="Leaf2" type="MeshInstance3D" parent="PottingBench/PlantContainer/StemContainer/Foliage"]
+transform = Transform3D(0.796035, 0.605249, 0, -0.605249, 0.796035, 0, 0, 0, 1, 0.06, 0.24, 0.02)
+mesh = SubResource("BoxMesh_leaf")
+
+[node name="FlowerBloom" type="Node3D" parent="PottingBench/PlantContainer/StemContainer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44, 0)
+visible = false
+
+[node name="Petal" type="MeshInstance3D" parent="PottingBench/PlantContainer/StemContainer/FlowerBloom"]
+mesh = SubResource("SphereMesh_flower")
+
+[node name="SeedStation" type="Node3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 0.48, 0.25)
+
+[node name="SeedMesh" type="MeshInstance3D" parent="PottingBench/SeedStation"]
+mesh = SubResource("SphereMesh_seed")
+
+[node name="WateringCanStation" type="Node3D" parent="PottingBench"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 0.50, 0.25)
+
+[node name="CanMesh" type="MeshInstance3D" parent="PottingBench/WateringCanStation"]
+mesh = SubResource("CylinderMesh_can")
+
+[node name="Dynamic3DContainer" type="Node3D" parent="."]
+
+[node name="HandCursor3D" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0.35)
+
+[node name="Halo" type="MeshInstance3D" parent="HandCursor3D"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("TorusMesh_halo")
+
+[node name="TrajectoryMesh" type="MeshInstance3D" parent="HandCursor3D"]
+top_level = true
+mesh = SubResource("ImmediateMesh_trail")
+
+[node name="Tools" type="Node3D" parent="HandCursor3D"]
+
+[node name="Trowel" type="Node3D" parent="HandCursor3D/Tools"]
+
+[node name="TrowelMesh" type="MeshInstance3D" parent="HandCursor3D/Tools/Trowel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+mesh = SubResource("PrismMesh_trowel")
+
+[node name="Hand" type="Node3D" parent="HandCursor3D/Tools"]
+visible = false
+
+[node name="HeldSeed" type="Node3D" parent="HandCursor3D/Tools"]
+visible = false
+
+[node name="SeedMesh" type="MeshInstance3D" parent="HandCursor3D/Tools/HeldSeed"]
+mesh = SubResource("SphereMesh_seed")
+
+[node name="WateringCan" type="Node3D" parent="HandCursor3D/Tools"]
+visible = false
+
+[node name="CanToolMesh" type="MeshInstance3D" parent="HandCursor3D/Tools/WateringCan"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03, 0)
+mesh = SubResource("CylinderMesh_tool_can")
+
+[node name="Shield" type="Node3D" parent="HandCursor3D/Tools"]
+visible = false
+
+[node name="ShieldMesh" type="MeshInstance3D" parent="HandCursor3D/Tools/Shield"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, -0.03, 0)
+mesh = SubResource("CylinderMesh_shield")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TaskPanel" type="PanelContainer" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 440.0
+offset_bottom = 120.0
+mouse_filter = 2
+theme_type_variation = &"TaskCard"
+
+[node name="VBox" type="VBoxContainer" parent="UI/HUD/TaskPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="StageLabel" type="Label" parent="UI/HUD/TaskPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "Level 1, Brunnstrom stages III–IV"
+
+[node name="TaskName" type="Label" parent="UI/HUD/TaskPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+text = "Task 1: Dial the Soil"
+
+[node name="TaskDesc" type="Label" parent="UI/HUD/TaskPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(376, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.87, 0.82, 1)
+theme_override_font_sizes/font_size = 16
+text = "Extend your arm forward into the pot and make circular strokes to cultivate soil."
+autowrap_mode = 3
+
+[node name="StatsPanel" type="PanelContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -250.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 120.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="Grid" type="GridContainer" parent="UI/HUD/StatsPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 2
+columns = 2
+
+[node name="RepsCaption" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"CaptionLabel"
+text = "Repetition"
+
+[node name="RepsLabel" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MetricLabel"
+text = "1 of 3"
+horizontal_alignment = 2
+
+[node name="TimerCaption" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"CaptionLabel"
+text = "Time"
+
+[node name="TimerLabel" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MetricLabel"
+text = "0.0 s"
+horizontal_alignment = 2
+
+[node name="SmoothnessCaption" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"CaptionLabel"
+text = "Smoothness"
+
+[node name="SmoothnessLabel" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MetricLabel"
+theme_override_colors/font_color = Color(0.604, 0.831, 0.549, 1)
+text = "100%"
+horizontal_alignment = 2
+
+[node name="PostureCaption" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"CaptionLabel"
+text = "Posture alerts"
+
+[node name="PostureErrorsLabel" type="Label" parent="UI/HUD/StatsPanel/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"MetricLabel"
+text = "0"
+horizontal_alignment = 2
+
+[node name="IMUPanel" type="PanelContainer" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -76.0
+offset_right = 420.0
+offset_bottom = -20.0
+grow_vertical = 0
+
+[node name="HBox" type="HBoxContainer" parent="UI/HUD/IMUPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="IMUStatusLabel" type="Label" parent="UI/HUD/IMUPanel/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"CaptionLabel"
+text = "○ Waiting for IMU on port 4242"
+
+[node name="IMUModeButton" type="Button" parent="UI/HUD/IMUPanel/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Input: Auto"
+
+[node name="CalibrateButton" type="Button" parent="UI/HUD/IMUPanel/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Calibrate"
+
+[node name="LevelNavHint" type="Label" parent="UI/HUD"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -520.0
+offset_top = -46.0
+offset_right = -24.0
+offset_bottom = -26.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_type_variation = &"CaptionLabel"
+theme_override_colors/font_color = Color(0.945, 0.937, 0.894, 0.92)
+theme_override_colors/font_shadow_color = Color(0.04, 0.07, 0.055, 0.6)
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/shadow_outline_size = 2
+text = "1  2  3 switch level      C calibrate      M input      T test posture alert"
+horizontal_alignment = 2
+
+[node name="WarningOverlay" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = 0.0
+offset_right = 280.0
+offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"WarningPanel"
+
+[node name="VBox" type="VBoxContainer" parent="UI/WarningOverlay"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WarningHeading" type="Label" parent="UI/WarningOverlay/VBox"]
+layout_mode = 2
+theme_type_variation = &"WarningHeading"
+text = "Sit back to continue"
+
+[node name="ReasonLabel" type="Label" parent="UI/WarningOverlay/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"WarningBody"
+text = "Your trunk is leaning forward."
+autowrap_mode = 3
+
+[node name="Scrim" type="ColorRect" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.07, 0.055, 0.6)
+
+[node name="IntroDialog" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -330.0
+offset_top = 0.0
+offset_right = 330.0
+offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"DialogPanel"
+
+[node name="VBox" type="VBoxContainer" parent="UI/IntroDialog"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Heading" type="VBoxContainer" parent="UI/IntroDialog/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="IntroSubtitle" type="Label" parent="UI/IntroDialog/VBox/Heading"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "Level 1 of 3, for Brunnstrom stages III–IV"
+
+[node name="IntroTitle" type="Label" parent="UI/IntroDialog/VBox/Heading"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+text = "Easy: reach and grasp"
+
+[node name="IntroObjective" type="Label" parent="UI/IntroDialog/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.87, 0.82, 1)
+theme_override_font_sizes/font_size = 16
+text = "Objective"
+autowrap_mode = 3
+
+[node name="IntroTasksList" type="RichTextLabel" parent="UI/IntroDialog/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+theme_override_constants/line_separation = 8
+text = "Tasks"
+fit_content = true
+scroll_active = false
+
+[node name="Tip" type="PanelContainer" parent="UI/IntroDialog/VBox"]
+layout_mode = 2
+theme_type_variation = &"TipPanel"
+
+[node name="IntroPostureTip" type="Label" parent="UI/IntroDialog/VBox/Tip"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Posture"
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="UI/IntroDialog/VBox"]
+layout_mode = 2
+alignment = 2
+
+[node name="StartLevelButton" type="Button" parent="UI/IntroDialog/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Start level"
+
+[node name="SummaryDialog" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -390.0
+offset_top = 0.0
+offset_right = 390.0
+offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"DialogPanel"
+
+[node name="VBox" type="VBoxContainer" parent="UI/SummaryDialog"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="SummaryTitle" type="Label" parent="UI/SummaryDialog/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+text = "Level 1 report"
+
+[node name="SummaryStatsLabel" type="RichTextLabel" parent="UI/SummaryDialog/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/table_h_separation = 44
+theme_override_constants/table_v_separation = 14
+bbcode_enabled = true
+text = "Metrics"
+fit_content = true
+scroll_active = false
+
+[node name="SummaryTasksBreakdown" type="RichTextLabel" parent="UI/SummaryDialog/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 212)
+layout_mode = 2
+theme_override_font_sizes/normal_font_size = 14
+theme_override_font_sizes/bold_font_size = 13
+bbcode_enabled = true
+text = "Breakdown"
+
+[node name="Assessment" type="PanelContainer" parent="UI/SummaryDialog/VBox"]
+layout_mode = 2
+theme_type_variation = &"TipPanel"
+
+[node name="SummaryAssessmentLabel" type="Label" parent="UI/SummaryDialog/VBox/Assessment"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Assessment"
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="UI/SummaryDialog/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExportButton" type="Button" parent="UI/SummaryDialog/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Export session data"
+
+[node name="Spacer" type="Control" parent="UI/SummaryDialog/VBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ReplayButton" type="Button" parent="UI/SummaryDialog/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Replay level"
+
+[node name="ContinueButton" type="Button" parent="UI/SummaryDialog/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "Next level"
+
+[node name="EncouragementBanner" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 165.0
+offset_right = 100.0
+offset_bottom = 209.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_type_variation = &"ToastPanel"
+
+[node name="ToastLabel" type="Label" parent="UI/EncouragementBanner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.604, 0.831, 0.549, 1)
+theme_override_font_sizes/font_size = 17
+text = "Great job! Keep moving smoothly."
+horizontal_alignment = 1

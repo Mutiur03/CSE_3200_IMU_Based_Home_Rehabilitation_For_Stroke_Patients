@@ -1,10 +1,12 @@
-"""IMU ingestion server (Phase 2-3).
+"""IMU ingestion server.
 
-ESP32 --(WS /ws/imu or POST /api/imu)--> validate --> raw JSONL log + live broadcast (/ws/live).
-No processing/assessment yet; raw data is never modified.
+ESP32 --(WS /ws/imu or POST /api/imu)--> validate --> raw JSONL log + live broadcast (/ws/live)
+                                                  --> tilt (orientation.py) --> UDP to Godot game
+Raw data is never modified.
 """
 import json
 import os
+import socket
 import time
 from collections import deque
 from pathlib import Path
@@ -13,12 +15,21 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from orientation import Tilt
+
 # Sensor full-scale from firmware config (ESP_32/IMU_test: ACCEL_CONFIG0=0x08, GYRO_CONFIG0=0x08).
 # Change these if firmware FS changes. These are sensor limits, not clinical thresholds.
 ACCEL_LIMIT_G = 16.0
 GYRO_LIMIT_DPS = 2000.0
 RAW_DIR = Path(os.environ.get("IMU_RAW_DIR", Path(__file__).resolve().parent.parent / "data" / "raw"))
 RATE_WINDOW = 200  # samples used to estimate sample rate
+
+# Godot game (imu-rehab-game/main.gd) listens on UDP 4242 for {"pitch", "roll", "trunk_lean"} in degrees.
+GAME_ADDR = (os.environ.get("GAME_HOST", "127.0.0.1"), int(os.environ.get("GAME_PORT", "4242")))
+# Mounting knobs: set to 1 if reaching forward/right moves the cursor the wrong way.
+FLIP_PITCH = os.environ.get("GAME_FLIP_PITCH") == "1"
+FLIP_ROLL = os.environ.get("GAME_FLIP_ROLL") == "1"
+game_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 
 class Vec3(BaseModel):
@@ -68,6 +79,7 @@ class Device:
         self.last_seen = None
         self.connected = False
         self.times = deque(maxlen=RATE_WINDOW)
+        self.tilt = Tilt()
         RAW_DIR.mkdir(parents=True, exist_ok=True)
         self.path = RAW_DIR / f"{device_id}_{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.log = self.path.open("a", buffering=1)  # line-buffered: a crash loses at most one line
@@ -78,6 +90,7 @@ class Device:
             # seq/clock went backwards: device rebooted (or reordered packet). Restart rate estimate.
             self.resets += 1
             self.times.clear()
+            self.tilt = Tilt()
         elif self.last_seq is not None:
             self.dropped += batch.seq - self.last_seq - 1
         self.last_seq = batch.seq
@@ -85,6 +98,8 @@ class Device:
         self.packets += 1
         self.samples += len(batch.samples)
         self.times.extend(s.timestamp for s in batch.samples)
+        for s in batch.samples:
+            self.tilt.update(s.timestamp, s.accel.x, s.accel.y, s.accel.z, s.gyro.x, s.gyro.y)
 
     def stats(self) -> dict:
         span = self.times[-1] - self.times[0] if len(self.times) > 1 else 0
@@ -97,6 +112,8 @@ class Device:
             "last_seq": self.last_seq,
             "last_seen_ms": self.last_seen,
             "sample_rate_hz": round((len(self.times) - 1) * 1e6 / span, 2) if span else None,
+            "pitch_deg": round(self.tilt.pitch, 2) if self.tilt.pitch is not None else None,
+            "roll_deg": round(self.tilt.roll, 2) if self.tilt.roll is not None else None,
             "raw_log": str(self.path),
         }
 
@@ -119,6 +136,7 @@ async def ingest(raw: str | bytes, via_ws: bool = False) -> Batch:
     dev.update(batch, received_ms)
     dev.connected = dev.connected or via_ws
     dev.log.write(json.dumps({"server_time_ms": received_ms, **batch.model_dump()}) + "\n")
+    send_to_game(dev)
 
     msg = json.dumps({"device_id": batch.device_id, "samples": batch.model_dump()["samples"], "stats": dev.stats()})
     # ponytail: sequential sends; a stalled viewer delays ingestion. Move to per-client queues if that bites.
@@ -128,6 +146,17 @@ async def ingest(raw: str | bytes, via_ws: bool = False) -> Batch:
         except Exception:
             live_clients.discard(ws)
     return batch
+
+
+def send_to_game(dev: Device):
+    # Latest tilt only: the game keeps just the newest packet per frame anyway.
+    # trunk_lean = 0: no trunk IMU yet, so the game's posture warning stays off (no compensation claims).
+    pitch, roll = dev.tilt.pitch, dev.tilt.roll
+    msg = {"pitch": round(-pitch if FLIP_PITCH else pitch, 2), "roll": round(-roll if FLIP_ROLL else roll, 2), "trunk_lean": 0.0}
+    try:
+        game_sock.sendto(json.dumps(msg).encode(), GAME_ADDR)
+    except OSError:
+        pass  # game not running must never break ingestion
 
 
 @app.websocket("/ws/imu")
@@ -186,4 +215,5 @@ def dashboard():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)  # 0.0.0.0 so the ESP32 can reach it on the LAN
+    # 0.0.0.0 so the ESP32 can reach it on the LAN; reload restarts on .py changes (ESP32 auto-reconnects)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

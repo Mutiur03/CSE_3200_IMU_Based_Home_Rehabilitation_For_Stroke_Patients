@@ -6,6 +6,12 @@ This file is the authoritative project context for AI coding/development agents 
 
 ---
 
+> **Implementation note (2026-10-03):** the game is currently a **Godot 4** project in `imu-rehab-game/`,
+> not Unity. Wherever this document says "Unity", read "the game client". The server sends tilt to it over
+> **UDP 4242** as `{"pitch", "roll", "trunk_lean"}` (degrees). See `server/README.md`.
+
+---
+
 ## 1. Project Goal
 
 Build a low-cost serious-game prototype for upper-limb stroke rehabilitation.

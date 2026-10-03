@@ -1,7 +1,7 @@
 # IMU Rehab Server
 
-Phase 2–3 backend: receives ICM-42688-P data from the ESP32 over Wi-Fi, validates it, logs raw data, shows a live view.
-No processing, assessment, or Unity output yet.
+Receives ICM-42688-P data from the ESP32 over Wi-Fi, validates it, logs raw data, shows a live view,
+and drives the Godot game (`imu-rehab-game/`) with arm tilt over UDP.
 
 ## Run
 
@@ -9,7 +9,7 @@ No processing, assessment, or Unity output yet.
 cd server
 python -m venv .venv
 .venv/Scripts/pip install -r requirements.txt    # Windows; use .venv/bin/pip on Linux/macOS
-.venv/Scripts/python app.py    # or: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+.venv/Scripts/python app.py    # hot-reloads on .py changes; the ESP32 reconnects by itself
 ```
 
 - Dashboard: `http://<pc-ip>:8000/`
@@ -56,6 +56,22 @@ Batching: the server does not fix a sample rate or batch size. 100 Hz at ~10 sam
 
 `data/raw/<device_id>_<YYYYmmdd-HHMMSS>.jsonl`: one file per device per server run. Each line is the batch exactly as received, plus `server_time_ms` (Unix ms). It is never modified. Override the folder with the `IMU_RAW_DIR` env var.
 
+## Game link (Godot)
+
+Each valid batch updates a tilt estimate ([orientation.py](orientation.py)). The server then sends the latest value to the game,
+which listens on UDP 4242 (`imu-rehab-game/main.gd`):
+
+```json
+{"pitch": 12.3, "roll": -4.5, "trunk_lean": 0.0}
+```
+
+- `pitch` / `roll` are in degrees, from a complementary filter (gyro + accel, `ALPHA = 0.98`). **Assumption, not validated.** Tune it on real movement.
+- No yaw: a 6-axis IMU has no absolute heading.
+- `trunk_lean` is always 0. There's no trunk IMU, so the game's posture warning never fires from the sensor.
+- Press `C` in the game with the arm at rest to zero it.
+- Env knobs: `GAME_HOST` / `GAME_PORT` (default `127.0.0.1:4242`), and `GAME_FLIP_PITCH=1` / `GAME_FLIP_ROLL=1` if the cursor moves the wrong way for how the IMU is strapped on.
+- The current pitch/roll also show in `/api/status` and on the dashboard. Use them to check axes before playing.
+
 ## Not yet (later phases)
 
-Calibration, filtering, features, movement detection, quality score, and the Unity game-control channel. Those get their own modules and read from the raw stream; they do not change raw data.
+Features, movement detection, quality score, adaptive difficulty. Those get their own modules and read from the raw stream; they do not change raw data.
