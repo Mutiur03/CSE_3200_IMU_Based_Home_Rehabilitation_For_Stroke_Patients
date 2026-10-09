@@ -4,15 +4,18 @@ Godot 4.7 remake of the UERG game from Chen, Huang & Wang, *Developing a digital
 patients' upper extremity rehabilitation* (Procedia Manufacturing 3, 2015). The original used
 Kinect; this version is driven by an IMU over UDP, with mouse/keyboard fallback.
 
-## Levels (from the paper)
+## Levels (from the paper): 9 levels, one task each
 
-| Level       | Brunnstrom stage | Tasks                                              | Trains                            |
-| ----------- | ---------------- | -------------------------------------------------- | --------------------------------- |
-| 1 Easy      | III–IV          | Dial the soil, pick up seeds to sow, water the pot | Reach-to-grasp, forward extension |
-| 2 Medium    | IV–V            | Weeding, deinsectization, photosynthesis           | + shoulder abduction/adduction    |
-| 3 Difficult | V–VI            | Block wind, block lightning, receive sunlight      | Coordination, fine control        |
+Each of the paper's three tasks per difficulty group is its own level, so the game has 9 levels of 3 repetitions each. Finishing a level shows
+its own report, then "Next level" (level 9 goes back to level 1).
 
-Each task runs 3 repetitions. Paper features implemented:
+| Levels | Group (Brunnstrom stage) | Tasks, one per level                                          | Trains                            |
+| ------ | ------------------------ | ------------------------------------------------------------- | --------------------------------- |
+| 1-3    | Easy (III-IV)            | 1 Dial the soil, 2 Pick up seeds to sow, 3 Water the pot      | Reach-to-grasp, forward extension |
+| 4-6    | Medium (IV-V)            | 4 Weeding, 5 Deinsectization, 6 Photosynthesis                | + shoulder abduction/adduction    |
+| 7-9    | Difficult (V-VI)         | 7 Block wind, 8 Block lightning, 9 Receive sunlight           | Coordination, fine control        |
+
+Paper features implemented:
 
 - **Navigation**: briefing dialog before each level (objective, tasks, posture tips).
 - **Feedback**: task timer, encouragement slogans, compensatory-movement warning that pauses the
@@ -30,7 +33,7 @@ Open the folder in Godot 4.7 and press F5, or:
   & "C:\path\to\Godot_v4.7.2-stable_win64.exe" --path .
   ```
 
-Keys: `1`/`2`/`3` jump to level, `C` calibrate IMU zero, `M` cycle input mode
+Keys: `1`-`9` jump to that level, `C` calibrate IMU zero, `M` cycle input mode
 (Auto / IMU / Mouse / Keyboard), `T` simulate trunk lean. Keyboard mode: WASD/arrows, Q/E height.
 
 ## IMU input
@@ -55,3 +58,8 @@ python tools/imu_streamer.py --selftest
 
 Serial mode needs `pip install pyserial`. Use `--flip-pitch` / `--flip-roll` if the sensor is
 mounted reversed, and press `C` in-game with the arm at rest to zero it.
+
+## Server link (rep reporting and adaptive difficulty)
+
+After each repetition the game POSTs it to the IMU server (`SERVER_EVENT_URL` in `main.gd`, default `http://127.0.0.1:8000/api/game_event`).
+The reply carries `quality`, `level_quality` and, after a level's last rep, `next_level`. The report screen then offers "Next level", "Repeat level N" or "Go back to level N" by quality (see server/README.md), and cursor gain follows the level (1.25x at level 1 down to 0.8x at level 9). If the server is not running, the game just goes to the next level. Run the game from the Godot editor: the prebuilt `.exe` in the repo root predates this.

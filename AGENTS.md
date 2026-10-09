@@ -10,6 +10,12 @@ This file is the authoritative project context for AI coding/development agents 
 > not Unity. Wherever this document says "Unity", read "the game client". The server sends tilt to it over
 > **UDP 4242** as `{"pitch", "roll", "trunk_lean"}` (degrees). See `server/README.md`.
 
+> **Implementation note (2026-10-09):** the sensor is worn **like a watch** on the back of the wrist (chip up, -X toward the hand), so it tracks
+> forearm motion (roll = pronation/supination, pitch = forearm raise/lower), not the wrist joint. The **game defines a rep**; it POSTs each finished
+> rep to `POST /api/game_event` and the server pairs it with sensor features, a movement-quality score and an adaptive difficulty level, returned in
+> the reply; after a level's last rep it also returns which level to play next (up / repeat / down from mean quality), and difficulty = level number applied as cursor gain. Quality/adaptation constants are unvalidated placeholders (`server/quality.py`). Firmware samples
+> and sends in separate tasks. See `server/README.md`.
+
 ---
 
 ## 1. Project Goal

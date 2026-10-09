@@ -8,10 +8,38 @@
   canvas { width: 100%; height: 220px; background: #1b1b1b; display: block; margin-bottom: 12px; }
   pre { background: #1b1b1b; padding: 8px; }
   .x { color: #e55 } .y { color: #5c5 } .z { color: #59f }
+  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  button, select { font: inherit; padding: 6px 12px; background: #2a2a2a; color: #ddd; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #363636; }
+  .big { font-size: 28px; font-weight: 600; } .dim { color: #888; font-size: 12px; }
+  .card { background: #1b1b1b; padding: 8px 14px; border-radius: 4px; min-width: 110px; }
+  table { border-collapse: collapse; margin-bottom: 12px; } td, th { padding: 3px 12px; text-align: right; border-bottom: 1px solid #2a2a2a; }
+  #msg { color: #8c8; }
 </style>
 </head>
 <body>
 <h3>IMU Live — <span id="conn">connecting…</span></h3>
+<div class="bar">
+  <label>Rep axis <select id="axis"><option value="roll">roll (pronation/supination)</option><option value="pitch">pitch (forearm raise/lower)</option></select></label>
+  <button id="zero" title="Hold the arm at rest, then press">Zero (set neutral)</button>
+  <button id="resetreps">Reset reps</button>
+  <button id="adapt" title="Choose the next level from movement quality (off = always the next level)">Adaptation: …</button>
+  <a href="/api/session" target="_blank" style="color:#8af">Session summary (JSON)</a>
+  <span id="msg"></span>
+</div>
+<div class="bar">
+  <div class="card"><div class="dim">Game reps (from the game)</div><div class="big" id="reps">0</div></div>
+  <div class="card"><div class="dim">Last quality (0–100)</div><div class="big" id="quality">–</div></div>
+  <div class="card"><div class="dim">Level now (1–9)</div><div class="big" id="diff">–</div></div>
+  <div class="card"><div class="dim">Next level (server)</div><div class="big" id="nextlevel">–</div></div>
+  <div class="card"><div class="dim">Movement attempts (sensor)</div><div class="big" id="attempts">0</div></div>
+  <div class="card"><div class="dim">Angle vs neutral</div><div class="big" id="delta">–</div></div>
+  <div class="card"><div class="dim">Neutral</div><div class="big" id="neutral">–</div></div>
+  <div class="card"><div class="dim">Sample rate</div><div class="big" id="rate">–</div></div>
+</div>
+<div>Angle vs neutral (deg), lines = rep start (±<span id="enter">10</span>) and end (±<span id="exit">5</span>)</div>
+<canvas id="angle"></canvas>
+<table id="repTable"><thead><tr><th>#</th><th>level</th><th>task</th><th>rep</th><th>time s</th><th>pitch range °</th><th>roll range °</th><th>peak °/s</th><th>speed peaks</th><th>quality</th><th>level quality</th><th>next level</th></tr></thead><tbody></tbody></table>
 <div>Accel (g) <span class="x">x</span> <span class="y">y</span> <span class="z">z</span></div>
 <canvas id="accel"></canvas>
 <div>Gyro (dps) <span class="x">x</span> <span class="y">y</span> <span class="z">z</span></div>
@@ -20,6 +48,36 @@
 <script>
 const N = 500, buf = [];  // last N samples, all devices (single IMU for now)
 const colors = ['#e55', '#5c5', '#59f'];
+const AN = 300, angleBuf = [], reps = [];  // ~30 s of angle history (one point per batch)
+let adaptOn = true, dev = null, lim = {enter: 10, exit: 5}, lastRepNo = 0;
+
+async function post(url, ok) {
+  const r = await fetch(url, {method: 'POST'});
+  msg.textContent = r.ok ? ok : 'failed: ' + (await r.text());
+  setTimeout(() => msg.textContent = '', 3000);
+}
+zero.onclick = () => dev ? post('/api/zero/' + dev, 'neutral set') : msg.textContent = 'no device yet';
+adapt.onclick = () => post('/api/adapt/' + (adaptOn ? 'off' : 'on'), 'adaptation ' + (adaptOn ? 'off' : 'on'));
+resetreps.onclick = () => { if (dev) { post('/api/reps/reset/' + dev, 'reps reset'); reps.length = 0; lastRepNo = 0; renderReps(); } };
+axis.onchange = () => { post('/api/axis/' + axis.value, 'axis: ' + axis.value); angleBuf.length = 0; reps.length = 0; lastRepNo = 0; renderReps(); };
+
+function renderReps() {
+  document.querySelector('#repTable tbody').innerHTML = reps.slice(0, 10).map(r =>
+    `<tr><td>${r.game_rep}</td><td>${r.level}</td><td>${r.task}</td><td>${r.rep}</td><td>${r.duration_s}</td><td>${r.pitch_range_deg}</td><td>${r.roll_range_deg}</td><td>${r.peak_speed_dps}</td><td>${r.speed_peaks}</td><td>${r.quality ?? '–'}</td><td>${r.level_quality ?? '–'}</td><td>${r.next_level ?? '–'}</td></tr>`).join('');
+}
+
+function drawAngle() {
+  const c = document.getElementById('angle'), ctx = c.getContext('2d');
+  c.width = c.clientWidth; c.height = c.clientHeight;
+  const L = Math.max(30, lim.enter * 2, ...angleBuf.map(Math.abs)), mid = c.height / 2, k = (mid - 4) / L;
+  for (const [v, col] of [[0, '#333'], [lim.enter, '#553'], [-lim.enter, '#553'], [lim.exit, '#355'], [-lim.exit, '#355']]) {
+    ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(0, mid - v * k); ctx.lineTo(c.width, mid - v * k); ctx.stroke();
+  }
+  ctx.strokeStyle = '#fc4'; ctx.beginPath();
+  angleBuf.forEach((v, j) => ctx.lineTo(j * c.width / (AN - 1), mid - v * k));
+  ctx.stroke();
+  ctx.fillStyle = '#888'; ctx.fillText('±' + L.toFixed(0) + '°', 4, 12);
+}
 
 function draw(id, key) {
   const c = document.getElementById(id), ctx = c.getContext('2d');
@@ -43,10 +101,26 @@ function connect() {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     buf.push(...m.samples); buf.splice(0, Math.max(0, buf.length - N));
-    stats.textContent = m.device_id + ' ' + JSON.stringify(m.stats, null, 2);
+    const s = m.stats;
+    dev = m.device_id; lim = {enter: s.enter_deg, exit: s.exit_deg};
+    if (document.activeElement !== axis) axis.value = s.rep_axis;
+    document.getElementById('reps').textContent = s.game_rep_count;
+    document.getElementById('attempts').textContent = s.attempts;
+    document.getElementById('quality').textContent = s.last_game_rep && s.last_game_rep.quality !== null ? s.last_game_rep.quality : '–';
+    document.getElementById('diff').textContent = s.level;
+    document.getElementById('nextlevel').textContent = reps.find(r => r.next_level !== null && r.next_level !== undefined)?.next_level ?? '–';
+    adaptOn = s.adapt; adapt.textContent = 'Adaptation: ' + (adaptOn ? 'ON' : 'OFF');
+    document.getElementById('delta').textContent = s.delta_deg === null ? 'no neutral yet' : s.delta_deg.toFixed(1) + '°';
+    document.getElementById('neutral').textContent = s.rep_neutral_deg === null ? '–' : s.rep_neutral_deg.toFixed(1) + '°';
+    document.getElementById('rate').textContent = s.sample_rate_hz ? s.sample_rate_hz.toFixed(0) + ' Hz' : '–';
+    document.getElementById('enter').textContent = s.enter_deg; document.getElementById('exit').textContent = s.exit_deg;
+    if (s.delta_deg !== null) { angleBuf.push(s.delta_deg); angleBuf.splice(0, Math.max(0, angleBuf.length - AN)); }
+    if (s.game_rep_count < lastRepNo) { reps.length = 0; lastRepNo = 0; renderReps(); }
+    if (s.last_game_rep && s.last_game_rep.game_rep !== lastRepNo) { reps.unshift(s.last_game_rep); lastRepNo = s.last_game_rep.game_rep; renderReps(); }
+    stats.textContent = m.device_id + ' ' + JSON.stringify(s, null, 2);
   };
 }
-setInterval(() => { draw('accel', 'accel'); draw('gyro', 'gyro'); }, 50);
+setInterval(() => { draw('accel', 'accel'); draw('gyro', 'gyro'); drawAngle(); }, 50);
 connect();
 </script>
 </body>

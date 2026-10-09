@@ -24,6 +24,14 @@ enum ToolMode {
 # Configuration
 const REQUIRED_REPS: int = 3
 const UDP_PORT: int = 4242
+# Rep-completion events go to the IMU server, which pairs each rep with sensor features (server/README.md).
+const SERVER_EVENT_URL: String = "http://127.0.0.1:8000/api/game_event"
+const IMU_DEVICE_ID: String = "imu_01"
+# Difficulty = the level number (1 easiest .. 9 hardest): cursor gain falls from GAIN_EASIEST at level 1 to GAIN_HARDEST at level 9,
+# so the arm must travel further per target. Which level comes next is decided by the server from movement quality
+# (server/quality.py next_level). Placeholder values, not clinically derived.
+const GAIN_EASIEST: float = 1.25
+const GAIN_HARDEST: float = 0.8
 
 # UI References
 @onready var stage_label: Label = %StageLabel
@@ -136,6 +144,13 @@ const SMOOTHNESS_HEALTHY_MIN: float = 25.0 # mean/peak speed %, below = "on and 
 # Game Flow State
 var current_level: DifficultyLevel = DifficultyLevel.LEVEL_1_EASY
 var current_task_index: int = 0
+var current_stage: int = 1  # 1..9: each task is its own level (3 groups x 3 tasks)
+var next_stage_hint: int = 0  # level the server wants next (set after a level's last rep); 0 = none, use plain progression
+var level_scored_reps: int = 0  # how many reps the level score averages
+var rule_q_up: int = 90  # thresholds as the server reports them with its decision
+var rule_q_down: int = 60
+var rule_adapt: bool = true
+var last_level_quality = null  # server's mean quality for the level just played (Variant: null when nothing was scored)
 var current_rep: int = 1
 var is_task_active: bool = false
 var task_completed: bool = false
@@ -260,84 +275,90 @@ func _input(event: InputEvent) -> void:
 			calibrate_imu()
 		elif event.keycode == KEY_M:
 			_on_toggle_input_mode()
-		elif event.keycode == KEY_1:
-			show_level_intro(DifficultyLevel.LEVEL_1_EASY)
-		elif event.keycode == KEY_2:
-			show_level_intro(DifficultyLevel.LEVEL_2_MEDIUM)
-		elif event.keycode == KEY_3:
-			show_level_intro(DifficultyLevel.LEVEL_3_DIFFICULT)
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
+			show_level_intro(event.keycode - KEY_1 + 1)
 
 
-func show_level_intro(level: DifficultyLevel) -> void:
-	current_level = level
-	current_task_index = 0
+func show_level_intro(stage: int) -> void:
+	# 9 levels, one task each: stage 1-3 = old level 1 tasks, 4-6 = old level 2, 7-9 = old level 3.
+	current_stage = clampi(stage, 1, 9)
+	current_level = (int((current_stage - 1) / 3.0) + 1) as DifficultyLevel
+	current_task_index = (current_stage - 1) % 3
 	current_rep = 1
 	is_task_active = false
 	task_completed = false
+	next_stage_hint = 0
+	last_level_quality = null
+	level_scored_reps = 0
 
 	summary_dialog.hide()
 	warning_overlay.hide()
 
+	var tasks: Array = []
 	match current_level:
 		DifficultyLevel.LEVEL_1_EASY:
 			intro_title.text = "Reach and grasp"
-			intro_subtitle.text = "Level 1 of 3, easy. For Brunnstrom stages III–IV"
+			intro_subtitle.text = "Level %d of 9, easy. For Brunnstrom stages III–IV" % current_stage
 			intro_objective.text = "Builds forward reach (shoulder flexion, elbow extension) and reach-to-grasp control while your trunk stays still."
-			intro_tasks_list.text = _format_task_list([
+			tasks = [
 				["Dial the soil", "Reach forward into the pot and stir in slow circles."],
 				["Sow the seeds", "Reach left, pick up a seed, and carry it to the pot."],
 				["Water the pot", "Reach right, lift the watering can, and pour over the plant."],
-			])
+			]
 			intro_posture_tip.text = "Keep your back against the chair. Reach with your arm, not your chest."
-			stage_label.text = "Level 1, Brunnstrom stages III–IV"
+			stage_label.text = "Level %d of 9, Brunnstrom stages III–IV" % current_stage
 			target_growth_scale = 0.0
 			flower_bloom.visible = false
 
 		DifficultyLevel.LEVEL_2_MEDIUM:
 			intro_title.text = "Sweep across the bed"
-			intro_subtitle.text = "Level 2 of 3, medium. For Brunnstrom stages IV–V"
+			intro_subtitle.text = "Level %d of 9, medium. For Brunnstrom stages IV–V" % current_stage
 			intro_objective.text = "Widens side-to-side reach (horizontal abduction and adduction) to move outside basic synergy patterns."
-			intro_tasks_list.text = _format_task_list([
+			tasks = [
 				["Weeding", "Reach left, centre, and right to pull out each weed."],
 				["Clear the bugs", "Brush the pests off the leaves."],
 				["Photosynthesis", "Guide the sunlight onto the plant."],
-			])
+			]
 			intro_posture_tip.text = "Move your shoulder smoothly. Keep it low; don't shrug or hike it."
-			stage_label.text = "Level 2, Brunnstrom stages IV–V"
+			stage_label.text = "Level %d of 9, Brunnstrom stages IV–V" % current_stage
 			target_growth_scale = 0.95
 			flower_bloom.visible = false
 
 		DifficultyLevel.LEVEL_3_DIFFICULT:
 			intro_title.text = "Shelter the tree"
-			intro_subtitle.text = "Level 3 of 3, difficult. For Brunnstrom stages V–VI"
+			intro_subtitle.text = "Level %d of 9, difficult. For Brunnstrom stages V–VI" % current_stage
 			intro_objective.text = "Trains fine control, quick protective reaching, and coordination as the weather changes."
-			intro_tasks_list.text = _format_task_list([
+			tasks = [
 				["Block the wind", "Hold the shield in front of the young tree."],
 				["Block the lightning", "Move the shield under each bolt before it lands."],
 				["Catch the sunlight", "Guide full sunlight onto the tree until it blooms."],
-			])
+			]
 			intro_posture_tip.text = "Keep each movement fluid and your trunk steady."
-			stage_label.text = "Level 3, Brunnstrom stages V–VI"
+			stage_label.text = "Level %d of 9, Brunnstrom stages V–VI" % current_stage
 			target_growth_scale = 1.25
 			flower_bloom.visible = true
 
-	start_level_button.text = "Start level %d" % int(current_level)
+	# One task per level: show it as the level's title and only task.
+	intro_title.text = tasks[current_task_index][0]
+	intro_tasks_list.text = _format_task_list([tasks[current_task_index]], current_stage)
+	start_level_button.text = "Start level %d" % current_stage
 	intro_dialog.modulate.a = 0.0
 	intro_dialog.show()
 	start_level_button.grab_focus()
 	create_tween().tween_property(intro_dialog, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
 
 
-func _format_task_list(tasks: Array) -> String:
+func _format_task_list(tasks: Array, first_number: int = 1) -> String:
 	var lines: PackedStringArray = []
 	for i in tasks.size():
-		lines.append("[color=#F4B740][b]%d[/b][/color]   [b]%s[/b]   [color=#A7B5A2]%s[/color]" % [i + 1, tasks[i][0], tasks[i][1]])
+		lines.append("[color=#F4B740][b]%d[/b][/color]   [b]%s[/b]   [color=#A7B5A2]%s[/color]" % [i + first_number, tasks[i][0], tasks[i][1]])
 	return "\n".join(lines)
 
 
 func _on_start_level_button_pressed() -> void:
 	intro_dialog.hide()
 	level_start_time_msec = Time.get_ticks_msec()
+	_show_encouragement("Level %d of 9." % current_stage)
 	start_task()
 
 
@@ -516,9 +537,10 @@ func _update_cursor_movement(delta: float) -> void:
 			filtered_pitch = lerpf(filtered_pitch, rel_p, 0.3)
 			filtered_roll = lerpf(filtered_roll, rel_r, 0.3)
 
-			var x = filtered_roll * 0.016
-			var z = -filtered_pitch * 0.018
-			var y = absf(filtered_pitch) * 0.003
+			var gain: float = lerpf(GAIN_EASIEST, GAIN_HARDEST, (current_stage - 1) / 8.0)
+			var x = filtered_roll * 0.016 * gain
+			var z = -filtered_pitch * 0.018 * gain
+			var y = absf(filtered_pitch) * 0.003 * gain
 			target_pos_3d = resting_center + Vector3(x, y, z)
 
 		ControlMode.MOUSE_ONLY:
@@ -768,6 +790,78 @@ func _process_multitarget_level_3d(_delta: float) -> void:
 		_complete_current_repetition()
 
 
+func _report_rep_to_server(record: Dictionary) -> void:
+	# Fire and forget: the game must keep working when the server is not running.
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(_on_rep_reported.bind(http, record))
+	var body := JSON.stringify({
+		"device_id": IMU_DEVICE_ID,
+		"level": record["stage"],
+		"task": record["task"],
+		"rep": record["repetition"],
+		"duration_s": record["duration_sec"],
+		"reps_required": REQUIRED_REPS,
+	})
+	if http.request(SERVER_EVENT_URL, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
+		http.queue_free()
+
+
+func _on_rep_reported(_result: int, code: int, _headers: PackedStringArray, reply: PackedByteArray, http: HTTPRequest, record: Dictionary) -> void:
+	if code == 200:
+		_apply_server_feedback(JSON.parse_string(reply.get_string_from_utf8()), record)
+	http.queue_free()
+
+
+func _level_decision_text(short: bool) -> String:
+	# Explains, for the player, the server's choice of next level from the level score (average of the scored reps).
+	var target: int = next_stage_hint if next_stage_hint > 0 else current_stage % 9 + 1
+	if last_level_quality == null or not rule_adapt:
+		return "Moving on to level %d." % target
+	var score: int = int(roundf(float(last_level_quality)))
+	var rules: String = "%d or more moves up, below %d moves down." % [rule_q_up, rule_q_down]
+	var basis: String = "the average of your %d scored reps" % level_scored_reps
+	if score >= rule_q_up:
+		var up_text: String = "back to level 1" if current_stage == 9 else "up to level %d" % target
+		if short:
+			return "Level score %d. Moving %s." % [score, up_text]
+		return "Level score %d, %s. %s Great control, so you move %s." % [score, basis, rules, up_text]
+	if score < rule_q_down:
+		if current_stage == 1:
+			if short:
+				return "Level score %d. Staying on level 1." % score
+			return "Level score %d, %s. %s Level 1 is the easiest, so you stay here and try again." % [score, basis, rules]
+		if short:
+			return "Level score %d. Going back to level %d." % [score, target]
+		return "Level score %d, %s. %s Your movement was less steady than usual, so you go back to level %d." % [score, basis, rules, target]
+	if short:
+		return "Level score %d. Repeating level %d (%d+ to move up)." % [score, current_stage, rule_q_up]
+	return "Level score %d, %s. %s You are between the two, so you repeat level %d." % [score, basis, rules, current_stage]
+
+
+func _apply_server_feedback(fb, record: Dictionary) -> void:
+	# fb = server reply to the rep event: {"quality": int|null, "level_quality": float|null, "next_level": 1..9|null, ...}
+	if not fb is Dictionary:
+		return
+	record["quality"] = fb.get("quality")  # null for the first rep of a task (nothing to compare with)
+	record["level_quality"] = fb.get("level_quality")
+	if fb.get("next_level") != null:  # this was the level's last rep: the server has decided where to go
+		next_stage_hint = clampi(int(fb["next_level"]), 1, 9)
+		last_level_quality = fb.get("level_quality")
+		level_scored_reps = int(fb.get("scored_reps", 0))
+		rule_q_up = int(fb.get("q_up", rule_q_up))
+		rule_q_down = int(fb.get("q_down", rule_q_down))
+		rule_adapt = bool(fb.get("adapt", true))
+		# Last rep of the level: say how it went and why the next level is what it is.
+		var own = "Movement quality %d. " % int(fb["quality"]) if fb.get("quality") != null else ""
+		_show_encouragement(own + _level_decision_text(true))
+		return
+	if fb.get("quality") != null:
+		_show_encouragement("Movement quality %d." % int(fb["quality"]))
+	else:
+		_show_encouragement("Reference rep recorded.")
+
+
 func _complete_current_repetition() -> void:
 	task_completed = true
 	is_task_active = false
@@ -790,6 +884,7 @@ func _complete_current_repetition() -> void:
 
 	var record = {
 		"level": int(current_level),
+		"stage": current_stage,
 		"repetition": current_rep,
 		"task": task_name_label.text,
 		"duration_sec": duration,
@@ -801,6 +896,7 @@ func _complete_current_repetition() -> void:
 		"plant_health": "Healthy (Fresh Green)" if rep_healthy else "Compensated (Tan)"
 	}
 	session_records.append(record)
+	_report_rep_to_server(record)
 
 	_show_encouragement("Repetition done. Well done.", true)
 
@@ -810,14 +906,7 @@ func _complete_current_repetition() -> void:
 		current_rep += 1
 		start_task()
 	else:
-		if current_task_index < 2:
-			current_task_index += 1
-			current_rep = 1
-			_show_encouragement("Task complete. Next one coming up.", true)
-			await get_tree().create_timer(1.0).timeout
-			start_task()
-		else:
-			_show_level_summary()
+		_show_level_summary()
 
 
 func _show_level_summary() -> void:
@@ -829,14 +918,15 @@ func _show_level_summary() -> void:
 	var task_breakdown_str = ""
 
 	for r in session_records:
-		if r["level"] == int(current_level):
+		if r.get("stage") == current_stage:
 			count += 1
 			total_time += r["duration_sec"]
 			total_errors += r["posture_errors"]
 			total_path += r["path_length"]
 			avg_smoothness += r["smoothness_pct"]
-			task_breakdown_str += "[cell]%s[/cell][cell]%d[/cell][cell]%.1f s[/cell][cell]%.2f m[/cell][cell]%d[/cell]" % [
-				r["task"], r["repetition"], r["duration_sec"], r["path_length"], r["posture_errors"]
+			var qtxt = "-" if r.get("quality") == null else str(int(r["quality"]))
+			task_breakdown_str += "[cell]%s[/cell][cell]%d[/cell][cell]%.1f s[/cell][cell]%.2f m[/cell][cell]%d[/cell][cell]%s[/cell]" % [
+				r["task"], r["repetition"], r["duration_sec"], r["path_length"], r["posture_errors"], qtxt
 			]
 
 	if count > 0:
@@ -845,11 +935,11 @@ func _show_level_summary() -> void:
 	var plant_status = "Healthy green" if total_errors <= 1 else "Stressed tan"
 	var level_name = "Easy" if current_level == DifficultyLevel.LEVEL_1_EASY else ("Medium" if current_level == DifficultyLevel.LEVEL_2_MEDIUM else "Difficult")
 
-	summary_title.text = "Level %d report, %s" % [int(current_level), level_name.to_lower()]
+	summary_title.text = "Level %d of 9 report, %s" % [current_stage, level_name.to_lower()]
 
 	summary_stats_label.text = "[table=3]" + \
 		_metric_cell("%.1f s" % total_time, "Total time, %.1f s per rep" % (total_time / maxf(1.0, float(count)))) + \
-		_metric_cell("%d of %d" % [count, REQUIRED_REPS * 3], "Repetitions") + \
+		_metric_cell("%d of %d" % [count, REQUIRED_REPS], "Repetitions") + \
 		_metric_cell("%.0f%%" % avg_smoothness, "Smoothness") + \
 		_metric_cell("%.2f m" % total_path, "Hand path length") + \
 		_metric_cell(str(total_errors), "Posture alerts") + \
@@ -857,7 +947,7 @@ func _show_level_summary() -> void:
 		"[/table]"
 
 	var head = "[color=#A7B5A2]"
-	summary_tasks_breakdown.text = "[table=5][cell]%sTask[/color][/cell][cell]%sRep[/color][/cell][cell]%sTime[/color][/cell][cell]%sPath[/color][/cell][cell]%sAlerts[/color][/cell]" % [head, head, head, head, head] + \
+	summary_tasks_breakdown.text = "[table=6][cell]%sTask[/color][/cell][cell]%sRep[/color][/cell][cell]%sTime[/color][/cell][cell]%sPath[/color][/cell][cell]%sAlerts[/color][/cell][cell]%sQuality[/color][/cell]" % [head, head, head, head, head, head] + \
 		task_breakdown_str + "[/table]"
 
 	if total_errors == 0:
@@ -867,7 +957,15 @@ func _show_level_summary() -> void:
 	else:
 		summary_assessment_label.text = "Frequent forward trunk lean. Suggest checking backrest support so reaching comes from the arm."
 
-	continue_button.text = "Back to level 1" if current_level == DifficultyLevel.LEVEL_3_DIFFICULT else "Next level"
+	var target_stage: int = next_stage_hint if next_stage_hint > 0 else current_stage % 9 + 1
+	if target_stage == current_stage:
+		continue_button.text = "Repeat level %d" % target_stage
+	elif target_stage < current_stage and not (current_stage == 9 and target_stage == 1):
+		continue_button.text = "Go back to level %d" % target_stage
+	else:
+		continue_button.text = "Back to level 1" if current_stage == 9 else "Next level"
+	if last_level_quality != null:
+		summary_assessment_label.text += "\n\n" + _level_decision_text(false)
 	summary_dialog.modulate.a = 0.0
 	summary_dialog.show()
 	continue_button.grab_focus()
@@ -880,17 +978,12 @@ func _metric_cell(value: String, caption: String) -> String:
 
 func _on_summary_continue_pressed() -> void:
 	summary_dialog.hide()
-	if current_level == DifficultyLevel.LEVEL_1_EASY:
-		show_level_intro(DifficultyLevel.LEVEL_2_MEDIUM)
-	elif current_level == DifficultyLevel.LEVEL_2_MEDIUM:
-		show_level_intro(DifficultyLevel.LEVEL_3_DIFFICULT)
-	else:
-		show_level_intro(DifficultyLevel.LEVEL_1_EASY)
+	show_level_intro(next_stage_hint if next_stage_hint > 0 else current_stage % 9 + 1)
 
 
 func _on_summary_replay_pressed() -> void:
 	summary_dialog.hide()
-	show_level_intro(current_level)
+	show_level_intro(current_stage)
 
 
 func _on_export_data_pressed() -> void:
