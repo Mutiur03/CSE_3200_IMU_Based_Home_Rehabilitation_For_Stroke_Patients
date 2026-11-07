@@ -100,6 +100,7 @@ class Device:
         self.last_seq = None
         self.last_seen = None
         self.connected = False
+        self.ws = None  # the device's /ws/imu socket, used to send haptic cues back
         self.times = deque(maxlen=RATE_WINDOW)
         self.tilt = Tilt()
         self.reps = WristReps()
@@ -236,11 +237,14 @@ async def imu_stream(ws: WebSocket):
                 await ws.send_json({"error": e.errors(include_url=False, include_context=False)})
                 continue
             dev = devices[batch.device_id]
+            dev.ws = ws
     except WebSocketDisconnect:
         pass
     finally:
         if dev:
             dev.connected = False
+            if dev.ws is ws:
+                dev.ws = None
 
 
 @app.post("/api/imu")
@@ -262,7 +266,7 @@ class GameEvent(BaseModel):
 
 
 @app.post("/api/game_event")
-def game_event(ev: GameEvent):
+async def game_event(ev: GameEvent):
     """The game finished a rep. Pair it with the sensor features over that rep's time window."""
     dev = devices.get(ev.device_id)
     if dev is None:
@@ -292,6 +296,11 @@ def game_event(ev: GameEvent):
         rep["q_up"], rep["q_down"], rep["adapt"] = Q_UP, Q_DOWN, ADAPT
     dev.game_reps.append(rep)
     dev.game_log.write(json.dumps({"server_time_ms": now, **rep}) + "\n")
+    if dev.ws is not None:  # haptic cue: the wearable buzzes (firmware: REP_BUZZ_MS). A dead socket must not fail the game's POST.
+        try:
+            await dev.ws.send_text('{"event":"rep_done"}')
+        except Exception:
+            dev.ws = None
     return {"ok": True, **rep}
 
 

@@ -1,7 +1,8 @@
 #include <Wire.h>
 
-// AD0 high -> 0x69, AD0 low -> 0x68
-#define IMU_ADDRESS 0x69
+// AD0 low -> 0x68, AD0 high -> 0x69; setup() probes both
+int imuAddr = 0x69;
+#define IMU_ADDRESS imuAddr
 
 // ICM-42688-P, user bank 0
 #define REG_DEVICE_CONFIG  0x11
@@ -35,6 +36,12 @@ void setup() {
   Wire.begin(21, 22);
   Wire.setClock(400000);
 
+  for (int a = 0x68; a <= 0x69; a++) {
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) { imuAddr = a; break; }
+  }
+  Serial.printf("Using IMU address 0x%02X (if WHO_AM_I below is 0xFF, nothing ACKed: check wiring/power)\n", imuAddr);
+
   writeRegister(REG_BANK_SEL, 0x00);
   writeRegister(REG_DEVICE_CONFIG, 0x01);  // soft reset
   delay(10);
@@ -66,5 +73,5 @@ void loop() {
                 raw[0] / 2048.0, raw[1] / 2048.0, raw[2] / 2048.0,
                 raw[3] / 16.4, raw[4] / 16.4, raw[5] / 16.4);
 
-  delay(40);
+  delay(1000);
 }

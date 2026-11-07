@@ -25,7 +25,7 @@ python -m venv .venv
 
 | Endpoint            | Who             | Purpose                                                                                                              |
 | ------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `WS /ws/imu`      | ESP32           | Main stream. One text frame = one batch. Invalid batch → server replies`{"error": [...]}`, connection stays open. |
+| `WS /ws/imu`      | ESP32           | Main stream. One text frame = one batch. Invalid batch → server replies`{"error": [...]}`, connection stays open. Server also sends `{"event":"rep_done"}` on each `POST /api/game_event`; the firmware buzzes the DRV2605L haptic motor for 2 s. |
 | `POST /api/imu`   | ESP32 / testing | Same batch body. 200 or 422.                                                                                         |
 | `GET /api/status` | anyone          | Per-device packets, samples, dropped packets, resets, sample rate, connection state.                                 |
 | `WS /ws/live`     | dashboard       | Every valid batch + device stats.                                                                                    |

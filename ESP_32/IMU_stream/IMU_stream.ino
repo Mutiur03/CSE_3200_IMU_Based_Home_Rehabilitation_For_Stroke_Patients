@@ -16,8 +16,9 @@
 #define BATCH_SIZE  10  // 100 Hz ODR / 10 = 10 frames/s
 #define QUEUE_DEPTH 100  // 10 s of buffering at 100 Hz / BATCH_SIZE 10 (~25 KB heap); a ~5 s outage overflowed 40
 
-// AD0 high -> 0x69, AD0 low -> 0x68
-#define IMU_ADDRESS 0x69
+// AD0 low -> 0x68, AD0 high -> 0x69; setup() probes both
+int imuAddr = 0x69;
+#define IMU_ADDRESS imuAddr
 
 // ICM-42688-P, user bank 0
 #define REG_DEVICE_CONFIG  0x11
@@ -30,6 +31,17 @@
 #define REG_INT_SOURCE0    0x65
 #define REG_WHO_AM_I       0x75  // expect 0x47
 #define REG_BANK_SEL       0x76
+
+// DRV2605L haptic driver + ERM motor on the same I2C bus, fixed address. The server sends {"event":"rep_done"} over
+// the WebSocket when the game finishes a rep; onWsEvent (txTask) only sets repDone, loop() does the I2C buzz.
+// Wire is only touched from loop() (not txTask), so no locking needed.
+#define DRV_ADDRESS     0x5A
+#define DRV_MODE        0x01  // 0x00 = internal trigger, exits standby
+#define DRV_LIBRARY     0x03  // 1 = ERM library
+#define DRV_RTP         0x02  // real-time playback amplitude (signed): 0x7F full, 0 off; used with MODE 0x05
+#define DRV_FEEDBACK    0x1A  // bit7: 0 = ERM
+#define DRV_CONTROL3    0x1D  // bit5: ERM open loop
+#define REP_BUZZ_MS     2000  // buzz length per completed rep; library effects are <1 s, so hold the motor on with RTP
 
 // Must match server/app.py ACCEL_LIMIT_G / GYRO_LIMIT_DPS
 #define ACCEL_LSB_PER_G   2048.0  // +-16 g
@@ -45,6 +57,7 @@ int n = 0;
 uint32_t seq = 0;
 int64_t lastDataUs = 0;
 volatile uint32_t droppedBatches = 0;
+volatile bool repDone = false;  // set by onWsEvent on txTask, consumed by loop()
 
 void writeRegister(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(IMU_ADDRESS);
@@ -56,16 +69,33 @@ void writeRegister(uint8_t reg, uint8_t value) {
 uint8_t readRegister(uint8_t reg) {
   Wire.beginTransmission(IMU_ADDRESS);
   Wire.write(reg);
-  Wire.endTransmission(false);
+  Wire.endTransmission(true);  // STOP, not repeated start: flaky on ESP32 with Wi-Fi active
   Wire.requestFrom(IMU_ADDRESS, 1);
+  return Wire.available() ? Wire.read() : 0xFF;
+}
+
+uint8_t lastI2cErr = 0;  // 0 ok, 2 addr NACK, 3 data NACK, 4 other, 5 timeout
+void drvWrite(uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(DRV_ADDRESS);
+  Wire.write(reg);
+  Wire.write(value);
+  Wire.endTransmission();
+}
+
+uint8_t drvRead(uint8_t reg) {
+  Wire.beginTransmission(DRV_ADDRESS);
+  Wire.write(reg);
+  Wire.endTransmission(true);
+  Wire.requestFrom(DRV_ADDRESS, 1);
   return Wire.available() ? Wire.read() : 0xFF;
 }
 
 bool readImu(int16_t *raw) {
   Wire.beginTransmission(IMU_ADDRESS);
   Wire.write(REG_ACCEL_DATA_X1);
-  Wire.endTransmission(false);
-  if (Wire.requestFrom(IMU_ADDRESS, 12) != 12) return false;
+  lastI2cErr = Wire.endTransmission(true);  // STOP, not repeated start
+  if (lastI2cErr) return false;
+  if (Wire.requestFrom(IMU_ADDRESS, 12) != 12) { lastI2cErr = 99; return false; }  // 99 = short read
   for (int i = 0; i < 6; i++) raw[i] = (Wire.read() << 8) | Wire.read();
   return true;
 }
@@ -73,7 +103,10 @@ bool readImu(int16_t *raw) {
 void onWsEvent(WStype_t type, uint8_t *payload, size_t len) {
   if (type == WStype_CONNECTED) Serial.println("Server connected");
   else if (type == WStype_DISCONNECTED) Serial.println("Server disconnected, retrying");
-  else if (type == WStype_TEXT) Serial.printf("Server: %.*s\n", (int)len, (char *)payload);  // validation errors
+  else if (type == WStype_TEXT) {
+    Serial.printf("Server: %.*s\n", (int)len, (char *)payload);  // rep_done cue or validation errors
+    if (len >= 8 && memmem(payload, len, "rep_done", 8)) repDone = true;
+  }
 }
 
 void sendBatch(const Batch &b) {
@@ -120,7 +153,14 @@ void setup() {
 
   // Do NOT call pinMode() on 21/22 after this; it detaches them from I2C
   Wire.begin(21, 22);
-  Wire.setClock(400000);
+  Wire.setClock(100000);  // 100 kHz: more tolerant of long/loose wires and Wi-Fi noise; raise to 400000 once stable
+
+  bool found = false;
+  for (int a = 0x68; a <= 0x69 && !found; a++) {
+    Wire.beginTransmission(a);
+    if (Wire.endTransmission() == 0) { imuAddr = a; found = true; }
+  }
+  Serial.printf("IMU %s at 0x%02X\n", found ? "found" : "NOT FOUND (check wiring/power), defaulting", imuAddr);
 
   writeRegister(REG_BANK_SEL, 0x00);
   writeRegister(REG_DEVICE_CONFIG, 0x01);  // soft reset
@@ -137,6 +177,14 @@ void setup() {
   writeRegister(REG_PWR_MGMT0, 0x0F);      // gyro + accel low-noise mode
   delay(50);                               // gyro needs >=45 ms to start
 
+  Wire.beginTransmission(DRV_ADDRESS);
+  bool drvFound = Wire.endTransmission() == 0;
+  Serial.println(drvFound ? "DRV2605L found at 0x5A" : "DRV2605L NOT FOUND at 0x5A (check VIN/GND/SDA/SCL)");
+  drvWrite(DRV_MODE, 0x00);                                    // out of standby
+  drvWrite(DRV_FEEDBACK, drvRead(DRV_FEEDBACK) & 0x7F);        // ERM mode
+  drvWrite(DRV_CONTROL3, drvRead(DRV_CONTROL3) | 0x20);        // open loop: no auto-calibration needed
+  drvWrite(DRV_LIBRARY, 1);
+
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // modem power-save can stall traffic for 100s of ms to seconds; we stream continuously
   WiFi.setAutoReconnect(true);
@@ -151,6 +199,21 @@ void setup() {
 }
 
 void loop() {
+  static uint32_t buzzStartMs = 0;
+  static bool buzzing = false;
+  if (repDone) {  // non-blocking: 2 short I2C writes to start, 2 to stop. A new rep during a buzz restarts the 2 s.
+    repDone = false;
+    buzzStartMs = millis();
+    if (!buzzing) {
+      drvWrite(DRV_MODE, 0x05);  // RTP mode
+      drvWrite(DRV_RTP, 0x7F);   // full amplitude
+      buzzing = true;
+    }
+  } else if (buzzing && millis() - buzzStartMs >= REP_BUZZ_MS) {
+    drvWrite(DRV_RTP, 0x00);
+    drvWrite(DRV_MODE, 0x00);  // back to internal trigger
+    buzzing = false;
+  }
   // Sample on the sensor's own data-ready flag: no duplicate or skipped readings vs ODR.
   // Never blocks on the network, so a Wi-Fi stall cannot skip samples (see header comment).
   if (!(readRegister(REG_INT_STATUS) & 0x08)) {
@@ -162,7 +225,15 @@ void loop() {
   }
   int64_t t = esp_timer_get_time();
   lastDataUs = t;
-  if (!readImu(cur.s[n].raw)) { Serial.println("I2C read failed"); return; }
+  if (!readImu(cur.s[n].raw)) {
+    static uint32_t fails = 0;
+    if (++fails % 100 == 1) Serial.printf("I2C read failed (#%u, addr 0x%02X, err %u, WiFi %s)\n", (unsigned)fails, imuAddr, lastI2cErr,WiFi.status() == WL_CONNECTED ? "up" : "down");
+    Wire.end();  // reset a possibly stuck bus
+    Wire.begin(21, 22);
+    Wire.setClock(100000);
+    delay(10);
+    return;
+  }
   cur.s[n++].t = t;
   if (n == BATCH_SIZE) {
     cur.seq = seq++;  // advances even if the queue is full: server counts the gap as dropped packets
