@@ -3,6 +3,10 @@
 Receives ICM-42688-P data from the ESP32 over Wi-Fi, validates it, logs raw data, shows a live view,
 and drives the Godot game (`imu-rehab-game/`) with arm tilt over UDP.
 
+```
+ipconfig | Select-String -Pattern "adapter|IPv4"
+```
+
 ## Run
 
 ```bash
@@ -19,13 +23,13 @@ python -m venv .venv
 
 ## Endpoints
 
-| Endpoint | Who | Purpose |
-|---|---|---|
-| `WS /ws/imu` | ESP32 | Main stream. One text frame = one batch. Invalid batch → server replies `{"error": [...]}`, connection stays open. |
-| `POST /api/imu` | ESP32 / testing | Same batch body. 200 or 422. |
-| `GET /api/status` | anyone | Per-device packets, samples, dropped packets, resets, sample rate, connection state. |
-| `WS /ws/live` | dashboard | Every valid batch + device stats. |
-| `GET /` | browser | Live plot of accel/gyro + stats. |
+| Endpoint            | Who             | Purpose                                                                                                              |
+| ------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `WS /ws/imu`      | ESP32           | Main stream. One text frame = one batch. Invalid batch → server replies`{"error": [...]}`, connection stays open. |
+| `POST /api/imu`   | ESP32 / testing | Same batch body. 200 or 422.                                                                                         |
+| `GET /api/status` | anyone          | Per-device packets, samples, dropped packets, resets, sample rate, connection state.                                 |
+| `WS /ws/live`     | dashboard       | Every valid batch + device stats.                                                                                    |
+| `GET /`           | browser         | Live plot of accel/gyro + stats.                                                                                     |
 
 ## Packet schema (firmware ↔ server contract)
 
@@ -39,14 +43,14 @@ python -m venv .venv
 }
 ```
 
-| Field | Rule |
-|---|---|
-| `device_id` | 1–64 chars, `[A-Za-z0-9_-]` |
-| `seq` | Batch counter, +1 per batch. Gaps are counted as dropped packets. Going backwards counts as a device reset. |
-| `samples` | 1–500 per batch |
-| `timestamp` | Device clock, **microseconds**, int, strictly increasing (use `esp_timer_get_time()`, not `micros()`, because `micros()` wraps after ~71 min) |
-| `accel` | **g**, each axis within ±16 (firmware full-scale) |
-| `gyro` | **deg/s**, each axis within ±2000 (firmware full-scale) |
+| Field         | Rule                                                                                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `device_id` | 1–64 chars,`[A-Za-z0-9_-]`                                                                                                                            |
+| `seq`       | Batch counter, +1 per batch. Gaps are counted as dropped packets. Going backwards counts as a device reset.                                              |
+| `samples`   | 1–500 per batch                                                                                                                                         |
+| `timestamp` | Device clock,**microseconds**, int, strictly increasing (use `esp_timer_get_time()`, not `micros()`, because `micros()` wraps after ~71 min) |
+| `accel`     | **g**, each axis within ±16 (firmware full-scale)                                                                                                 |
+| `gyro`      | **deg/s**, each axis within ±2000 (firmware full-scale)                                                                                           |
 
 Units match the current firmware (`raw/2048` → g, `raw/16.4` → dps). If you change the firmware full-scale, update `ACCEL_LIMIT_G` / `GYRO_LIMIT_DPS` in `app.py` too.
 

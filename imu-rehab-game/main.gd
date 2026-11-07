@@ -112,6 +112,9 @@ const COLOR_STRESSED_LEAF: Color = Color(0.72, 0.48, 0.28)
 
 # Network & IMU
 var udp_server: PacketPeerUDP
+var ws_url: String
+var ws_peer: WebSocketPeer  # web build: tilt arrives over WebSocket /ws/game (browsers have no UDP)
+var server_event_url: String = SERVER_EVENT_URL
 var control_mode: ControlMode = ControlMode.HYBRID_AUTO
 var imu_connected: bool = false
 var _toast_tween: Tween
@@ -202,6 +205,14 @@ func _ready() -> void:
 
 
 func _init_udp_server() -> void:
+	if OS.has_feature("web"):
+		# Game is served by the IMU server at /play/, so talk back to the same origin.
+		var origin: String = str(JavaScriptBridge.eval("window.location.origin"))
+		server_event_url = origin + "/api/game_event"
+		ws_peer = WebSocketPeer.new()
+		ws_url = origin.replace("http", "ws") + "/ws/game"  # http->ws, https->wss
+		ws_peer.connect_to_url(ws_url)
+		return
 	udp_server = PacketPeerUDP.new()
 	var err = udp_server.bind(UDP_PORT, "0.0.0.0")
 	if err == OK:
@@ -488,11 +499,16 @@ func _process(delta: float) -> void:
 
 
 func _process_udp_packets() -> void:
-	if not udp_server:
+	var peer: Object = udp_server if udp_server else ws_peer
+	if not peer:
 		return
 
-	while udp_server.get_available_packet_count() > 0:
-		var packet = udp_server.get_packet()
+	if ws_peer:
+		ws_peer.poll()
+		if ws_peer.get_ready_state() == WebSocketPeer.STATE_CLOSED:
+			ws_peer.connect_to_url(ws_url)  # server restarted: reconnect
+	while peer.get_available_packet_count() > 0:
+		var packet = peer.get_packet()
 		var text = packet.get_string_from_utf8().strip_edges()
 		if text.is_empty():
 			continue
@@ -803,7 +819,7 @@ func _report_rep_to_server(record: Dictionary) -> void:
 		"duration_s": record["duration_sec"],
 		"reps_required": REQUIRED_REPS,
 	})
-	if http.request(SERVER_EVENT_URL, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
+	if http.request(server_event_url, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
 		http.queue_free()
 
 

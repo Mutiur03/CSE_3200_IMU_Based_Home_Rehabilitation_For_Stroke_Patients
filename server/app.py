@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from features import ENTER_DEG, EXIT_DEG, WristReps, diff, pick, window_features
@@ -178,6 +179,7 @@ class Device:
 devices: dict[str, Device] = {}
 invalid_packets = 0
 live_clients: set[WebSocket] = set()
+game_clients: set[WebSocket] = set()  # web build of the game (browsers can't receive UDP)
 app = FastAPI(title="IMU Rehab Server")
 
 
@@ -193,7 +195,12 @@ async def ingest(raw: str | bytes, via_ws: bool = False) -> Batch:
     dev.update(batch, received_ms)
     dev.connected = dev.connected or via_ws
     dev.log.write(json.dumps({"server_time_ms": received_ms, **batch.model_dump()}) + "\n")
-    send_to_game(dev)
+    game_msg = json.dumps(send_to_game(dev))
+    for ws in list(game_clients):
+        try:
+            await ws.send_text(game_msg)
+        except Exception:
+            game_clients.discard(ws)
 
     msg = json.dumps({"device_id": batch.device_id, "samples": batch.model_dump()["samples"], "stats": dev.stats()})
     # ponytail: sequential sends; a stalled viewer delays ingestion. Move to per-client queues if that bites.
@@ -214,6 +221,7 @@ def send_to_game(dev: Device):
         game_sock.sendto(json.dumps(msg).encode(), GAME_ADDR)
     except OSError:
         pass  # game not running must never break ingestion
+    return msg
 
 
 @app.websocket("/ws/imu")
@@ -386,10 +394,26 @@ async def live(ws: WebSocket):
         live_clients.discard(ws)
 
 
+@app.websocket("/ws/game")
+async def game_feed(ws: WebSocket):
+    await ws.accept()
+    game_clients.add(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        game_clients.discard(ws)
+
+
 @app.get("/")
 def dashboard():
     return FileResponse(Path(__file__).parent / "dashboard.html")
 
+
+# Web build of the game (Godot export into server/web/), served same-origin so no CORS is needed: http://<pc-ip>:8000/play/
+WEB_DIR = Path(__file__).parent / "web"
+if WEB_DIR.is_dir():
+    app.mount("/play", StaticFiles(directory=WEB_DIR, html=True), name="play")
 
 if __name__ == "__main__":
     import uvicorn
