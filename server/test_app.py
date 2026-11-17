@@ -158,6 +158,8 @@ def test():
         assert msg["stats"]["connected"] is True
         imu.send_text("not json")
         assert "error" in imu.receive_json()
+        assert client.post("/api/rep_done/imu_test").status_code == 200  # buzz only, no scoring
+        assert imu.receive_json() == {"event": "rep_done"}
 
     # Game reports a finished rep: server pairs it with sensor features from the last duration_s.
     now_ms = int(__import__("time").time() * 1000)

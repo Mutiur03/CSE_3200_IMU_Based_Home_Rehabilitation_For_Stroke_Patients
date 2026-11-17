@@ -184,6 +184,8 @@ class Device:
             "game_rep_count": len(self.game_reps),
             "last_game_rep": self.game_reps[-1] if self.game_reps else None,
             "load": round(self.load, 3) if self.load is not None else None,
+            "load_raw": self.load_raw,
+            "load_offset": self.load_offset,
             "level": self.level,
             "adapt": ADAPT,
             "raw_log": str(self.path),
@@ -311,12 +313,27 @@ async def game_event(ev: GameEvent):
         rep["q_up"], rep["q_down"], rep["adapt"] = Q_UP, Q_DOWN, ADAPT
     dev.game_reps.append(rep)
     dev.game_log.write(json.dumps({"server_time_ms": now, **rep}) + "\n")
-    if dev.ws is not None:  # haptic cue: the wearable buzzes (firmware: REP_BUZZ_MS). A dead socket must not fail the game's POST.
+    await buzz(dev)
+    return {"ok": True, **rep}
+
+
+async def buzz(dev: Device):
+    """Haptic cue: the wearable buzzes (firmware: REP_BUZZ_MS). A dead socket must not fail the caller."""
+    if dev.ws is not None:
         try:
             await dev.ws.send_text('{"event":"rep_done"}')
         except Exception:
             dev.ws = None
-    return {"ok": True, **rep}
+
+
+@app.post("/api/rep_done/{device_id}")
+async def rep_done(device_id: str):
+    """Buzz only, no scoring or adaptation (used by the load cell game)."""
+    dev = devices.get(device_id)
+    if dev is None:
+        raise HTTPException(404, "unknown device")
+    await buzz(dev)
+    return {"ok": True}
 
 
 @app.post("/api/tare_load/{device_id}")

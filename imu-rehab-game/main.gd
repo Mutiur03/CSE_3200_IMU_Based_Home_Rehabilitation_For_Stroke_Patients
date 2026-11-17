@@ -133,7 +133,6 @@ var last_load_time: float = -100.0
 var load_progress: float = 0.0
 var peak_force: float = 0.0
 var force_meter: Control  # live force bar, load cell game only
-var meter_signed: float = 0.0  # unclamped load cell value, so a wrong-way (negative) squeeze is visible
 var meter_force: float = -1.0  # force shown on the meter, -1 = no load cell data
 var _toast_tween: Tween
 var last_packet_time: float = 0.0
@@ -270,7 +269,7 @@ func _draw_force_meter() -> void:
 	var max_f: float = float(lv["hi"]) * 1.5
 	var font: Font = ThemeDB.fallback_font
 	force_meter.draw_rect(Rect2(0, 0, w, 74), Color(0.04, 0.07, 0.055, 0.8))
-	var label: String = "Force: no data (hold Space to test)" if meter_force < 0.0 else "Force: %.2f kg" % meter_signed
+	var label: String = "Force: no data (hold Space to test)" if meter_force < 0.0 else "Force: %.2f kg" % meter_force
 	force_meter.draw_string(font, Vector2(10, 20), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 	var bx := 10.0
 	var bw: float = w - 20.0
@@ -286,13 +285,17 @@ func _draw_force_meter() -> void:
 	force_meter.draw_rect(Rect2(bx, 58, bw * clampf(load_progress, 0.0, 1.0), 8), Color(0.96, 0.72, 0.25))
 
 
-func _tare_load_cell() -> void:
-	# Fire and forget: server makes the current load reading 0 kg. Cell must be unloaded.
+func _post_to_server(path: String) -> void:
+	# Fire and forget: the game must keep working when the server is not running.
 	var http := HTTPRequest.new()
 	add_child(http)
 	http.request_completed.connect(func(_r, _c, _h, _b): http.queue_free())
-	if http.request(server_event_url.replace("game_event", "tare_load/" + IMU_DEVICE_ID), [], HTTPClient.METHOD_POST) != OK:
+	if http.request(server_event_url.replace("game_event", path), [], HTTPClient.METHOD_POST) != OK:
 		http.queue_free()
+
+
+func _tare_load_cell() -> void:
+	_post_to_server("tare_load/" + IMU_DEVICE_ID)  # server makes the current reading 0 kg; cell must be unloaded
 	_show_encouragement("Load cell zeroed. Keep it unloaded.")
 
 
@@ -609,7 +612,6 @@ func _process_load_level(delta: float) -> void:
 		force = maxf(load_force, 0.0)
 	peak_force = maxf(peak_force, force)
 	meter_force = force
-	meter_signed = force if Input.is_key_pressed(KEY_SPACE) else load_force
 	force_meter.queue_redraw()
 
 	var good := false
@@ -1119,6 +1121,8 @@ func _complete_current_repetition() -> void:
 	session_records.append(record)
 	if game_mode == "normal":  # the server's IMU quality/adaptation does not apply to load cell levels
 		_report_rep_to_server(record)
+	else:
+		_post_to_server("rep_done/" + IMU_DEVICE_ID)  # haptic buzz only
 
 	_show_encouragement("Repetition done. Well done.", true)
 

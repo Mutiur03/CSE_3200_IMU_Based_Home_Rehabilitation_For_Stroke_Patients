@@ -23,6 +23,7 @@
   <label>Rep axis <select id="axis"><option value="roll">roll (pronation/supination)</option><option value="pitch">pitch (forearm raise/lower)</option></select></label>
   <button id="zero" title="Hold the arm at rest, then press">Zero (set neutral)</button>
   <button id="resetreps">Reset reps</button>
+  <button id="zeroload" title="Cell unloaded, then press: the current reading becomes 0 kg">Zero load cell</button>
   <button id="adapt" title="Choose the next level from movement quality (off = always the next level)">Adaptation: …</button>
   <a href="/api/session" target="_blank" style="color:#8af">Session summary (JSON)</a>
   <span id="msg"></span>
@@ -36,7 +37,7 @@
   <div class="card"><div class="dim">Angle vs neutral</div><div class="big" id="delta">–</div></div>
   <div class="card"><div class="dim">Neutral</div><div class="big" id="neutral">–</div></div>
   <div class="card"><div class="dim">Sample rate</div><div class="big" id="rate">–</div></div>
-  <div class="card"><div class="dim">Load cell</div><div class="big" id="load">–</div></div>
+  <div class="card"><div class="dim">Load cell (kg / raw counts)</div><div class="big" id="load">–</div></div>
 </div>
 <div>Angle vs neutral (deg), lines = rep start (±<span id="enter">10</span>) and end (±<span id="exit">5</span>)</div>
 <canvas id="angle"></canvas>
@@ -57,6 +58,7 @@ async function post(url, ok) {
   msg.textContent = r.ok ? ok : 'failed: ' + (await r.text());
   setTimeout(() => msg.textContent = '', 3000);
 }
+zeroload.onclick = () => dev ? post('/api/tare_load/' + dev, 'load cell zeroed') : msg.textContent = 'no device yet';
 zero.onclick = () => dev ? post('/api/zero/' + dev, 'neutral set') : msg.textContent = 'no device yet';
 adapt.onclick = () => post('/api/adapt/' + (adaptOn ? 'off' : 'on'), 'adaptation ' + (adaptOn ? 'off' : 'on'));
 resetreps.onclick = () => { if (dev) { post('/api/reps/reset/' + dev, 'reps reset'); reps.length = 0; lastRepNo = 0; renderReps(); } };
@@ -113,7 +115,7 @@ function connect() {
     adaptOn = s.adapt; adapt.textContent = 'Adaptation: ' + (adaptOn ? 'ON' : 'OFF');
     document.getElementById('delta').textContent = s.delta_deg === null ? 'no neutral yet' : s.delta_deg.toFixed(1) + '°';
     document.getElementById('neutral').textContent = s.rep_neutral_deg === null ? '–' : s.rep_neutral_deg.toFixed(1) + '°';
-    document.getElementById('load').textContent = s.load === null || s.load === undefined ? 'no data' : s.load.toFixed(2);
+    document.getElementById('load').textContent = s.load === null || s.load === undefined ? 'no data' : s.load.toFixed(2) + ' kg / ' + Math.round(s.load_raw - s.load_offset);
     document.getElementById('rate').textContent = s.sample_rate_hz ? s.sample_rate_hz.toFixed(0) + ' Hz' : '–';
     document.getElementById('enter').textContent = s.enter_deg; document.getElementById('exit').textContent = s.exit_deg;
     if (s.delta_deg !== null) { angleBuf.push(s.delta_deg); angleBuf.splice(0, Math.max(0, angleBuf.length - AN)); }
