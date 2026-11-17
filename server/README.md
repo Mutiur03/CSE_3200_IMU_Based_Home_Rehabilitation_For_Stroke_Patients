@@ -54,6 +54,10 @@ python -m venv .venv
 
 Units match the current firmware (`raw/2048` → g, `raw/16.4` → dps). If you change the firmware full-scale, update `ACCEL_LIMIT_G` / `GYRO_LIMIT_DPS` in `app.py` too.
 
+Optional `load` (float): latest HX711 load cell reading as **tared raw counts** (firmware tares once at boot, keep the cell unloaded). Omit it when no load cell is fitted. The server logs it with the batch and forwards `counts / LOAD_SCALE` to the game as `"load"` in the same UDP/WS packet.
+
+Load cell wiring: HX711 DT -> GPIO 25, SCK -> GPIO 26 (not 21/22, those are I2C). Calibrate: run the server with `LOAD_SCALE=1`, hang a known weight W, read `load` (counts) from `/api/status`, then set `LOAD_SCALE=counts/W` so the game sees kg. The default `80000` is an unmeasured placeholder (typical 5 kg cell), so kg values are only approximate until you calibrate. Use a negative value if force reads negative. The game's force bands (`LOAD_LEVELS` in `main.gd`) are unvalidated placeholders.
+
 Batching: the server does not fix a sample rate or batch size. 100 Hz at ~10 samples per batch is roughly 10 frames/s.
 
 ## Raw data

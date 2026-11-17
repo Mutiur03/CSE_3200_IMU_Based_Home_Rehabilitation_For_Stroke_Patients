@@ -142,7 +142,10 @@ def test():
     assert client.post("/api/imu", json=batch(0, 0)).status_code == 200
     pkt = json.loads(game.recv(1024))
     assert set(pkt) == {"pitch", "roll", "trunk_lean"} and abs(pkt["pitch"]) < 0.05 and abs(pkt["roll"]) < 0.05, pkt
-    assert client.post("/api/imu", json=batch(3, 100_000)).status_code == 200  # seq 1,2 lost
+    b = batch(3, 100_000)  # seq 1,2 lost
+    b["load"] = 250_000.0  # load cell counts; game gets counts / LOAD_SCALE
+    assert client.post("/api/imu", json=b).status_code == 200
+    assert json.loads(game.recv(1024))["load"] == 250_000.0 / app.LOAD_SCALE
     assert client.post("/api/imu", json=batch(4, 200_000, ax=20.0)).status_code == 422  # > ±16 g
     bad = batch(4, 200_000)
     bad["samples"][5]["timestamp"] = 0

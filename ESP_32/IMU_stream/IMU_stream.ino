@@ -10,6 +10,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <WebSocketsClient.h>  // "WebSockets" by Markus Sattler (Library Manager)
+#include <HX711.h>             // "HX711" by Bogdan Necula (Library Manager)
 #include "secrets.h"           // copy secrets.example.h -> secrets.h
 
 #define DEVICE_ID   "imu_01"
@@ -43,12 +44,17 @@ int imuAddr = 0x69;
 #define DRV_CONTROL3    0x1D  // bit5: ERM open loop
 #define REP_BUZZ_MS     2000  // buzz length per completed rep; library effects are <1 s, so hold the motor on with RTP
 
+// HX711 load cell amp. NOT on 21/22 (I2C). Wire DT -> GPIO 25, SCK -> GPIO 26. Optional: no HX711 = no "load" field.
+// Sent as tared raw counts (tared once at boot, keep the cell unloaded); the server scales counts to game units (LOAD_SCALE).
+#define LOAD_DT  25
+#define LOAD_SCK 26
+
 // Must match server/app.py ACCEL_LIMIT_G / GYRO_LIMIT_DPS
 #define ACCEL_LSB_PER_G   2048.0  // +-16 g
 #define GYRO_LSB_PER_DPS  16.4    // +-2000 dps
 
 struct Sample { int64_t t; int16_t raw[6]; };
-struct Batch { uint32_t seq; Sample s[BATCH_SIZE]; };
+struct Batch { uint32_t seq; Sample s[BATCH_SIZE]; bool hasLoad; float load; };
 
 WebSocketsClient ws;  // touched only by txTask after setup()
 QueueHandle_t txQueue;
@@ -57,6 +63,10 @@ int n = 0;
 uint32_t seq = 0;
 int64_t lastDataUs = 0;
 volatile uint32_t droppedBatches = 0;
+HX711 scale;
+bool loadFound = false;
+bool loadValid = false;  // at least one reading since boot
+float loadCounts = 0;    // latest tared reading, only touched by loop()
 volatile bool repDone = false;  // set by onWsEvent on txTask, consumed by loop()
 
 void writeRegister(uint8_t reg, uint8_t value) {
@@ -122,7 +132,9 @@ void sendBatch(const Batch &b) {
                     r[0] / ACCEL_LSB_PER_G, r[1] / ACCEL_LSB_PER_G, r[2] / ACCEL_LSB_PER_G,
                     r[3] / GYRO_LSB_PER_DPS, r[4] / GYRO_LSB_PER_DPS, r[5] / GYRO_LSB_PER_DPS);
   }
-  len += snprintf(buf + len, sizeof(buf) - len, "]}");
+  len += snprintf(buf + len, sizeof(buf) - len, "]");
+  if (b.hasLoad) len += snprintf(buf + len, sizeof(buf) - len, ",\"load\":%.1f", b.load);
+  len += snprintf(buf + len, sizeof(buf) - len, "}");
   if (len < (int)sizeof(buf)) ws.sendTXT(buf, len);
 }
 
@@ -185,6 +197,11 @@ void setup() {
   drvWrite(DRV_CONTROL3, drvRead(DRV_CONTROL3) | 0x20);        // open loop: no auto-calibration needed
   drvWrite(DRV_LIBRARY, 1);
 
+  scale.begin(LOAD_DT, LOAD_SCK);
+  loadFound = scale.wait_ready_timeout(1000);
+  Serial.println(loadFound ? "HX711 found, taring (keep load cell unloaded)..." : "HX711 not found, streaming IMU only");
+  if (loadFound) scale.tare(10);  // ~1 s at 10 SPS
+
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // modem power-save can stall traffic for 100s of ms to seconds; we stream continuously
   WiFi.setAutoReconnect(true);
@@ -214,6 +231,11 @@ void loop() {
     drvWrite(DRV_MODE, 0x00);  // back to internal trigger
     buzzing = false;
   }
+  // HX711 runs at 10 SPS; read only when it has a sample (read() would otherwise block up to 100 ms and skip IMU samples).
+  if (loadFound && scale.is_ready()) {
+    loadCounts = scale.get_value(1);
+    loadValid = true;
+  }
   // Sample on the sensor's own data-ready flag: no duplicate or skipped readings vs ODR.
   // Never blocks on the network, so a Wi-Fi stall cannot skip samples (see header comment).
   if (!(readRegister(REG_INT_STATUS) & 0x08)) {
@@ -236,6 +258,8 @@ void loop() {
   }
   cur.s[n++].t = t;
   if (n == BATCH_SIZE) {
+    cur.hasLoad = loadValid;
+    cur.load = loadCounts;
     cur.seq = seq++;  // advances even if the queue is full: server counts the gap as dropped packets
     if (xQueueSend(txQueue, &cur, 0) != pdTRUE) droppedBatches++;
     n = 0;

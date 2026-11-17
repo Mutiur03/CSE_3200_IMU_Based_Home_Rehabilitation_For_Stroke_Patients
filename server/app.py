@@ -29,6 +29,10 @@ RAW_DIR = Path(os.environ.get("IMU_RAW_DIR", Path(__file__).resolve().parent.par
 PROCESSED_DIR = Path(os.environ.get("IMU_PROCESSED_DIR", RAW_DIR.parent / "processed"))  # derived reps, never mixed with raw
 ADAPT = os.environ.get("IMU_ADAPT", "1") == "1"  # choose the next level from quality (else fixed progression); dashboard toggle
 REP_AXIS = os.environ.get("IMU_REP_AXIS", "roll")  # roll = pronation/supination, pitch = forearm raise/lower (features.py)
+# Load cell (HX711 on the same ESP32): firmware sends tared raw counts as "load"; the game gets counts / LOAD_SCALE.
+# PLACEHOLDER 80000 counts per kg (typical 5 kg bar cell, NOT measured): replace with the CAL_FACTOR from a known weight (README).
+# Negative flips the sign.
+LOAD_SCALE = float(os.environ.get("LOAD_SCALE", "80000"))
 RATE_WINDOW = 200  # samples used to estimate sample rate
 
 # Godot game (imu-rehab-game/main.gd) listens on UDP 4242 for {"pitch", "roll", "trunk_lean"} in degrees.
@@ -67,9 +71,11 @@ class Sample(BaseModel):
 
 
 class Batch(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
     device_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     seq: int = Field(ge=0)  # increments by 1 per batch; gaps = lost packets
     samples: list[Sample] = Field(min_length=1, max_length=500)
+    load: float | None = None  # tared HX711 counts, latest reading; absent when no load cell is fitted
 
     @model_validator(mode="after")
     def timestamps_increase(self):
@@ -104,6 +110,9 @@ class Device:
         self.times = deque(maxlen=RATE_WINDOW)
         self.tilt = Tilt()
         self.reps = WristReps()
+        self.load = None  # latest load cell value in game units
+        self.load_raw = None  # latest raw counts from the firmware
+        self.load_offset = 0.0  # counts treated as zero force, set by POST /api/tare_load (the game's Start level / Z)
         self.last_rep = None
         self.clock = ClockMap()
         self.buf = deque(maxlen=6000)  # (wall_ms, pitch, roll, |gyro|) ~60 s at 100 Hz, to pair sensor data with game events
@@ -134,6 +143,9 @@ class Device:
         self.packets += 1
         self.samples += len(batch.samples)
         self.times.extend(s.timestamp for s in batch.samples)
+        if batch.load is not None:
+            self.load_raw = batch.load
+            self.load = (batch.load - self.load_offset) / LOAD_SCALE
         for s in batch.samples:
             pitch, roll = self.tilt.update(s.timestamp, s.accel.x, s.accel.y, s.accel.z, s.gyro.x, s.gyro.y)
             wall_ms = self.clock.wall(s.timestamp)
@@ -171,6 +183,7 @@ class Device:
             "last_rep": self.last_rep,
             "game_rep_count": len(self.game_reps),
             "last_game_rep": self.game_reps[-1] if self.game_reps else None,
+            "load": round(self.load, 3) if self.load is not None else None,
             "level": self.level,
             "adapt": ADAPT,
             "raw_log": str(self.path),
@@ -218,6 +231,8 @@ def send_to_game(dev: Device):
     # trunk_lean = 0: no trunk IMU yet, so the game's posture warning stays off (no compensation claims).
     pitch, roll = dev.tilt.pitch, dev.tilt.roll
     msg = {"pitch": round(-pitch if FLIP_PITCH else pitch, 2), "roll": round(-roll if FLIP_ROLL else roll, 2), "trunk_lean": 0.0}
+    if dev.load is not None:
+        msg["load"] = round(dev.load, 3)
     try:
         game_sock.sendto(json.dumps(msg).encode(), GAME_ADDR)
     except OSError:
@@ -302,6 +317,17 @@ async def game_event(ev: GameEvent):
         except Exception:
             dev.ws = None
     return {"ok": True, **rep}
+
+
+@app.post("/api/tare_load/{device_id}")
+def tare_load(device_id: str):
+    """Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded."""
+    dev = devices.get(device_id)
+    if dev is None or dev.load_raw is None:
+        raise HTTPException(404, "no load data from that device yet")
+    dev.load_offset = dev.load_raw
+    dev.load = 0.0
+    return {"ok": True, "offset_counts": dev.load_offset}
 
 
 @app.post("/api/zero/{device_id}")

@@ -33,6 +33,15 @@ const IMU_DEVICE_ID: String = "imu_01"
 const GAIN_EASIEST: float = 1.25
 const GAIN_HARDEST: float = 0.8
 
+# Load cell game: IMU still moves the cursor, squeezing the load cell is the action. 3 levels, no server adaptation.
+# Force is in server game units (server LOAD_SCALE, kg once calibrated). Bands/holds are unvalidated placeholders, not clinical values.
+const LOAD_LEVELS: Array = [
+	{"name": "Gentle squeeze", "lo": 0.5, "hi": 2.0, "hold": 3.0, "g0": 0.0, "g1": 0.55, "tip": "Squeeze lightly. Too hard and the water stops."},
+	{"name": "Steady squeeze", "lo": 2.0, "hi": 4.0, "hold": 4.0, "g0": 0.55, "g1": 0.95, "tip": "Firmer squeeze, held steady within the band."},
+	{"name": "Long hold", "lo": 3.0, "hi": 5.0, "hold": 6.0, "g0": 0.95, "g1": 1.25, "tip": "Keep a strong, even squeeze for the whole hold."},
+]
+const LOAD_TIMEOUT_S: float = 1.5
+
 # UI References
 @onready var stage_label: Label = %StageLabel
 @onready var task_name_label: Label = %TaskName
@@ -117,6 +126,15 @@ var ws_peer: WebSocketPeer  # web build: tilt arrives over WebSocket /ws/game (b
 var server_event_url: String = SERVER_EVENT_URL
 var control_mode: ControlMode = ControlMode.HYBRID_AUTO
 var imu_connected: bool = false
+var game_mode: String = "normal"  # "normal" (9 IMU levels) or "load" (3 load cell levels)
+var start_menu: Control
+var load_force: float = 0.0
+var last_load_time: float = -100.0
+var load_progress: float = 0.0
+var peak_force: float = 0.0
+var force_meter: Control  # live force bar, load cell game only
+var meter_signed: float = 0.0  # unclamped load cell value, so a wrong-way (negative) squeeze is visible
+var meter_force: float = -1.0  # force shown on the meter, -1 = no load cell data
 var _toast_tween: Tween
 var last_packet_time: float = 0.0
 var raw_pitch: float = 0.0
@@ -201,7 +219,96 @@ func _ready() -> void:
 	encouragement_banner.hide()
 	summary_dialog.hide()
 
-	show_level_intro(DifficultyLevel.LEVEL_1_EASY)
+	_build_start_menu()
+
+
+func _build_start_menu() -> void:
+	start_menu = PanelContainer.new()
+	start_menu.theme_type_variation = &"DialogPanel"
+	start_menu.custom_minimum_size = Vector2(520, 0)
+	start_menu.set_anchors_preset(Control.PRESET_CENTER)
+	start_menu.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	start_menu.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	start_menu.add_child(box)
+	var title := Label.new()
+	title.theme_type_variation = &"TitleLabel"
+	title.text = "Choose your game"
+	box.add_child(title)
+	var options: Array = [
+		["Normal game", "9 levels. Move the cursor with your arm (IMU).", "normal"],
+		["Load cell game", "3 levels. Only squeeze the load cell, no arm movement.", "load"],
+	]
+	for o in options:
+		var b := Button.new()
+		b.text = o[0]
+		if o[2] == "normal":
+			b.theme_type_variation = &"PrimaryButton"
+		b.pressed.connect(_on_mode_chosen.bind(o[2]))
+		box.add_child(b)
+		var d := Label.new()
+		d.text = o[1]
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(d)
+	$UI.add_child(start_menu)
+	scrim.visible = true
+
+	force_meter = Control.new()
+	force_meter.custom_minimum_size = Vector2(380, 74)
+	force_meter.size = Vector2(380, 74)
+	force_meter.position = Vector2(32, 200)
+	force_meter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	force_meter.visible = false
+	force_meter.draw.connect(_draw_force_meter)
+	$UI.add_child(force_meter)
+
+
+func _draw_force_meter() -> void:
+	var lv: Dictionary = LOAD_LEVELS[current_stage - 1]
+	var w: float = force_meter.size.x
+	var max_f: float = float(lv["hi"]) * 1.5
+	var font: Font = ThemeDB.fallback_font
+	force_meter.draw_rect(Rect2(0, 0, w, 74), Color(0.04, 0.07, 0.055, 0.8))
+	var label: String = "Force: no data (hold Space to test)" if meter_force < 0.0 else "Force: %.2f kg" % meter_signed
+	force_meter.draw_string(font, Vector2(10, 20), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
+	var bx := 10.0
+	var bw: float = w - 20.0
+	force_meter.draw_rect(Rect2(bx, 30, bw, 18), Color(1, 1, 1, 0.12))
+	var x0: float = bx + bw * float(lv["lo"]) / max_f
+	var x1: float = bx + bw * float(lv["hi"]) / max_f
+	force_meter.draw_rect(Rect2(x0, 30, x1 - x0, 18), Color(0.3, 0.85, 0.4, 0.45))  # target band
+	if meter_force >= 0.0:
+		var mx: float = bx + bw * clampf(meter_force / max_f, 0.0, 1.0)
+		var in_band: bool = meter_force >= float(lv["lo"]) and meter_force <= float(lv["hi"])
+		force_meter.draw_rect(Rect2(mx - 2, 26, 4, 26), Color(0.6, 1.0, 0.6) if in_band else Color(1.0, 0.7, 0.3))
+	force_meter.draw_rect(Rect2(bx, 58, bw, 8), Color(1, 1, 1, 0.12))
+	force_meter.draw_rect(Rect2(bx, 58, bw * clampf(load_progress, 0.0, 1.0), 8), Color(0.96, 0.72, 0.25))
+
+
+func _tare_load_cell() -> void:
+	# Fire and forget: server makes the current load reading 0 kg. Cell must be unloaded.
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(func(_r, _c, _h, _b): http.queue_free())
+	if http.request(server_event_url.replace("game_event", "tare_load/" + IMU_DEVICE_ID), [], HTTPClient.METHOD_POST) != OK:
+		http.queue_free()
+	_show_encouragement("Load cell zeroed. Keep it unloaded.")
+
+
+func _show_start_menu() -> void:
+	is_task_active = false
+	intro_dialog.hide()
+	summary_dialog.hide()
+	start_menu.show()
+
+
+func _on_mode_chosen(mode: String) -> void:
+	game_mode = mode
+	start_menu.hide()
+	session_records.clear()
+	soil_mat.albedo_color = Color(0.32, 0.22, 0.14)
+	show_level_intro(1)
 
 
 func _init_udp_server() -> void:
@@ -286,13 +393,17 @@ func _input(event: InputEvent) -> void:
 			calibrate_imu()
 		elif event.keycode == KEY_M:
 			_on_toggle_input_mode()
-		elif event.keycode >= KEY_1 and event.keycode <= KEY_9:
+		elif event.keycode == KEY_Z and game_mode == "load":
+			_tare_load_cell()
+		elif event.keycode == KEY_ESCAPE:
+			_show_start_menu()
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_9 and not start_menu.visible:
 			show_level_intro(event.keycode - KEY_1 + 1)
 
 
 func show_level_intro(stage: int) -> void:
 	# 9 levels, one task each: stage 1-3 = old level 1 tasks, 4-6 = old level 2, 7-9 = old level 3.
-	current_stage = clampi(stage, 1, 9)
+	current_stage = clampi(stage, 1, 3 if game_mode == "load" else 9)
 	current_level = (int((current_stage - 1) / 3.0) + 1) as DifficultyLevel
 	current_task_index = (current_stage - 1) % 3
 	current_rep = 1
@@ -353,10 +464,24 @@ func show_level_intro(stage: int) -> void:
 	intro_title.text = tasks[current_task_index][0]
 	intro_tasks_list.text = _format_task_list([tasks[current_task_index]], current_stage)
 	start_level_button.text = "Start level %d" % current_stage
+	if game_mode == "load":
+		_fill_load_intro()
 	intro_dialog.modulate.a = 0.0
 	intro_dialog.show()
 	start_level_button.grab_focus()
 	create_tween().tween_property(intro_dialog, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+
+
+func _fill_load_intro() -> void:
+	var lv: Dictionary = LOAD_LEVELS[current_stage - 1]
+	intro_title.text = "Water the plant: " + lv["name"]
+	intro_subtitle.text = "Load cell level %d of 3" % current_stage
+	intro_objective.text = "Builds grip and pressing force control. Squeeze the load cell so the force stays inside the target band until the plant is watered. No arm movement needed."
+	intro_tasks_list.text = _format_task_list([["Squeeze and hold", "Force %.1f to %.1f for %.0f s, %d times." % [lv["lo"], lv["hi"], lv["hold"], REQUIRED_REPS]]])
+	intro_posture_tip.text = lv["tip"] + " Keep the load cell unloaded when you press Start (it zeroes then; Z zeroes again). No load cell? Hold Space to test."
+	stage_label.text = "Load cell level %d of 3" % current_stage
+	target_growth_scale = lv["g0"]
+	flower_bloom.visible = false
 
 
 func _format_task_list(tasks: Array, first_number: int = 1) -> String:
@@ -368,6 +493,8 @@ func _format_task_list(tasks: Array, first_number: int = 1) -> String:
 
 func _on_start_level_button_pressed() -> void:
 	intro_dialog.hide()
+	if game_mode == "load":
+		_tare_load_cell()
 	level_start_time_msec = Time.get_ticks_msec()
 	_show_encouragement("Level %d of 9." % current_stage)
 	start_task()
@@ -384,6 +511,10 @@ func start_task() -> void:
 	_update_trajectory_mesh()
 
 	_clear_dynamic_objects()
+
+	if game_mode == "load":
+		_start_load_task()
+		return
 
 	var task_name = ""
 	var task_desc = ""
@@ -454,6 +585,60 @@ func start_task() -> void:
 	rep_path_length = 0.0
 
 
+func _start_load_task() -> void:
+	var lv: Dictionary = LOAD_LEVELS[current_stage - 1]
+	load_progress = 0.0
+	peak_force = 0.0
+	soil_mat.albedo_color = Color(0.32, 0.22, 0.14)
+	_set_active_tool(ToolMode.WATERING_CAN)
+	task_name_label.text = "Water the plant: " + lv["name"]
+	task_desc_label.text = "Squeeze the load cell: force %.1f to %.1f for %.0f s." % [lv["lo"], lv["hi"], lv["hold"]]
+	reps_label.text = "%d of %d" % [current_rep, REQUIRED_REPS]
+	rep_start_time_msec = Time.get_ticks_msec()
+	rep_posture_errors = 0
+	rep_speed_samples.clear()
+	rep_path_length = 0.0
+
+
+func _process_load_level(delta: float) -> void:
+	var lv: Dictionary = LOAD_LEVELS[current_stage - 1]
+	var force: float = -1.0  # -1 = no load cell data
+	if Input.is_key_pressed(KEY_SPACE):
+		force = (lv["lo"] + lv["hi"]) / 2.0  # keyboard test stand-in
+	elif Time.get_ticks_msec() / 1000.0 - last_load_time < LOAD_TIMEOUT_S:
+		force = maxf(load_force, 0.0)
+	peak_force = maxf(peak_force, force)
+	meter_force = force
+	meter_signed = force if Input.is_key_pressed(KEY_SPACE) else load_force
+	force_meter.queue_redraw()
+
+	var good := false
+	var msg: String
+	if force < 0.0:
+		msg = "Waiting for the load cell. Hold Space to test without it."
+	elif force < lv["lo"]:
+		msg = "Squeeze a little harder (%.1f, need %.1f to %.1f)." % [force, lv["lo"], lv["hi"]]
+	elif force > lv["hi"]:
+		msg = "Ease off a little (%.1f, need %.1f to %.1f)." % [force, lv["lo"], lv["hi"]]
+	else:
+		good = true
+		msg = "Good, hold it there (%.1f)." % force
+	task_desc_label.text = msg
+
+	watering_can_node.rotation_degrees = Vector3(-35, 0, 0) if good else Vector3.ZERO
+	if good:
+		load_progress += delta / lv["hold"]
+		soil_mat.albedo_color = Color(0.32, 0.22, 0.14).lerp(Color(0.18, 0.11, 0.06), clampf(load_progress, 0.0, 1.0))
+		if randf() < 0.40:
+			_spawn_water_droplet()
+	var overall: float = (float(current_rep - 1) + clampf(load_progress, 0.0, 1.0)) / float(REQUIRED_REPS)
+	target_growth_scale = lerpf(lv["g0"], lv["g1"], overall)
+	flower_bloom.visible = current_stage == 3 and overall > 0.95
+	if load_progress >= 1.0:
+		watering_can_node.rotation_degrees = Vector3.ZERO
+		_complete_current_repetition()
+
+
 func _set_active_tool(tool: ToolMode) -> void:
 	trowel_node.visible = (tool == ToolMode.SOIL_TROWEL)
 	hand_node.visible = (tool == ToolMode.HAND_REACH)
@@ -472,8 +657,9 @@ func _process(delta: float) -> void:
 	_update_plant_animation(delta)
 	_update_droplets(delta)
 	_update_halo_pulse(delta)
-	scrim.visible = intro_dialog.visible or summary_dialog.visible
+	scrim.visible = intro_dialog.visible or summary_dialog.visible or start_menu.visible
 
+	force_meter.visible = game_mode == "load" and is_task_active and not task_completed
 	if not is_task_active or task_completed:
 		return
 
@@ -490,6 +676,10 @@ func _process(delta: float) -> void:
 	var smoothness = 100.0 - clampf(current_jerk * 3.0, 0.0, 60.0)
 	smoothness_label.text = "%d%%" % int(smoothness)
 	posture_errors_label.text = str(rep_posture_errors)
+
+	if game_mode == "load":
+		_process_load_level(delta)
+		return
 
 	match current_level:
 		DifficultyLevel.LEVEL_1_EASY:
@@ -529,6 +719,9 @@ func _parse_packet(text: String) -> void:
 			raw_roll = float(d.get("roll", raw_roll))
 			raw_yaw = float(d.get("yaw", raw_yaw))
 			raw_trunk_lean = float(d.get("trunk_lean", 0.0))
+			if d.has("load"):
+				load_force = float(d["load"])
+				last_load_time = Time.get_ticks_msec() / 1000.0
 			return
 
 	var parts = text.split(",")
@@ -542,6 +735,15 @@ func _parse_packet(text: String) -> void:
 
 
 func _update_cursor_movement(delta: float) -> void:
+	if game_mode == "load":  # load cell game: no arm movement, the watering can stays over the pot
+		current_pos_3d = pot_center + Vector3(0.08, 0.15, 0.0)
+		target_pos_3d = current_pos_3d
+		previous_pos_3d = current_pos_3d
+		hand_cursor.position = current_pos_3d
+		movement_speed = 0.0
+		current_jerk = 0.0
+		return
+
 	var active_input = control_mode
 	if control_mode == ControlMode.HYBRID_AUTO:
 		active_input = ControlMode.IMU_ONLY if imu_connected else ControlMode.MOUSE_ONLY
@@ -895,7 +1097,7 @@ func _complete_current_repetition() -> void:
 	var smoothness = clampf(mean_spd / maxf(1.0, peak_spd), 0.0, 1.0) * 100.0
 
 	# Paper: seedling turns tan on compensatory posture OR "on and off" (jerky) operation.
-	var rep_healthy = rep_posture_errors == 0 and smoothness >= SMOOTHNESS_HEALTHY_MIN
+	var rep_healthy = rep_posture_errors == 0 and (game_mode == "load" or smoothness >= SMOOTHNESS_HEALTHY_MIN)
 	plant_healthy = rep_healthy
 
 	var record = {
@@ -909,10 +1111,14 @@ func _complete_current_repetition() -> void:
 		"peak_speed": peak_spd,
 		"smoothness_pct": smoothness,
 		"posture_errors": rep_posture_errors,
-		"plant_health": "Healthy (Fresh Green)" if rep_healthy else "Compensated (Tan)"
+		"plant_health": "Healthy (Fresh Green)" if rep_healthy else "Compensated (Tan)",
+		"mode": game_mode,
 	}
+	if game_mode == "load":
+		record["peak_force"] = peak_force
 	session_records.append(record)
-	_report_rep_to_server(record)
+	if game_mode == "normal":  # the server's IMU quality/adaptation does not apply to load cell levels
+		_report_rep_to_server(record)
 
 	_show_encouragement("Repetition done. Well done.", true)
 
@@ -921,8 +1127,41 @@ func _complete_current_repetition() -> void:
 	if current_rep < REQUIRED_REPS:
 		current_rep += 1
 		start_task()
+	elif game_mode == "load":
+		_show_load_summary()
 	else:
 		_show_level_summary()
+
+
+func _show_load_summary() -> void:
+	var lv: Dictionary = LOAD_LEVELS[current_stage - 1]
+	var count := 0
+	var total_time := 0.0
+	var peak_sum := 0.0
+	var rows := ""
+	for r in session_records:
+		if r.get("mode") == "load" and r.get("stage") == current_stage:
+			count += 1
+			total_time += r["duration_sec"]
+			peak_sum += r["peak_force"]
+			rows += "[cell]%s[/cell][cell]%d[/cell][cell]%.1f s[/cell][cell]%.1f[/cell]" % [r["task"], r["repetition"], r["duration_sec"], r["peak_force"]]
+	var n := maxf(1.0, float(count))
+	summary_title.text = "Load cell level %d of 3 report" % current_stage
+	summary_stats_label.text = "[table=3]" + \
+		_metric_cell("%.1f s" % total_time, "Total time, %.1f s per rep" % (total_time / n)) + \
+		_metric_cell("%d of %d" % [count, REQUIRED_REPS], "Repetitions") + \
+		_metric_cell("%.1f" % (peak_sum / n), "Average peak force") + \
+		_metric_cell("%.1f to %.1f" % [lv["lo"], lv["hi"]], "Target force band") + \
+		_metric_cell("%.0f s" % lv["hold"], "Hold per rep") + \
+		"[/table]"
+	var head = "[color=#A7B5A2]"
+	summary_tasks_breakdown.text = "[table=4][cell]%sTask[/color][/cell][cell]%sRep[/color][/cell][cell]%sTime[/color][/cell][cell]%sPeak force[/color][/cell]" % [head, head, head, head] + rows + "[/table]"
+	summary_assessment_label.text = "Force readings are in load cell units (kg once calibrated). Bands are placeholders, not clinical values."
+	continue_button.text = "Back to level 1" if current_stage == 3 else "Next level"
+	summary_dialog.modulate.a = 0.0
+	summary_dialog.show()
+	continue_button.grab_focus()
+	create_tween().tween_property(summary_dialog, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
 
 
 func _show_level_summary() -> void:
@@ -934,7 +1173,7 @@ func _show_level_summary() -> void:
 	var task_breakdown_str = ""
 
 	for r in session_records:
-		if r.get("stage") == current_stage:
+		if r.get("stage") == current_stage and r.get("mode", "normal") == "normal":
 			count += 1
 			total_time += r["duration_sec"]
 			total_errors += r["posture_errors"]
@@ -994,6 +1233,9 @@ func _metric_cell(value: String, caption: String) -> String:
 
 func _on_summary_continue_pressed() -> void:
 	summary_dialog.hide()
+	if game_mode == "load":
+		show_level_intro(current_stage % 3 + 1)
+		return
 	show_level_intro(next_stage_hint if next_stage_hint > 0 else current_stage % 9 + 1)
 
 

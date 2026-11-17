@@ -36,6 +36,7 @@
   <div class="card"><div class="dim">Angle vs neutral</div><div class="big" id="delta">–</div></div>
   <div class="card"><div class="dim">Neutral</div><div class="big" id="neutral">–</div></div>
   <div class="card"><div class="dim">Sample rate</div><div class="big" id="rate">–</div></div>
+  <div class="card"><div class="dim">Load cell</div><div class="big" id="load">–</div></div>
 </div>
 <div>Angle vs neutral (deg), lines = rep start (±<span id="enter">10</span>) and end (±<span id="exit">5</span>)</div>
 <canvas id="angle"></canvas>
@@ -112,6 +113,7 @@ function connect() {
     adaptOn = s.adapt; adapt.textContent = 'Adaptation: ' + (adaptOn ? 'ON' : 'OFF');
     document.getElementById('delta').textContent = s.delta_deg === null ? 'no neutral yet' : s.delta_deg.toFixed(1) + '°';
     document.getElementById('neutral').textContent = s.rep_neutral_deg === null ? '–' : s.rep_neutral_deg.toFixed(1) + '°';
+    document.getElementById('load').textContent = s.load === null || s.load === undefined ? 'no data' : s.load.toFixed(2);
     document.getElementById('rate').textContent = s.sample_rate_hz ? s.sample_rate_hz.toFixed(0) + ' Hz' : '–';
     document.getElementById('enter').textContent = s.enter_deg; document.getElementById('exit').textContent = s.exit_deg;
     if (s.delta_deg !== null) { angleBuf.push(s.delta_deg); angleBuf.splice(0, Math.max(0, angleBuf.length - AN)); }
