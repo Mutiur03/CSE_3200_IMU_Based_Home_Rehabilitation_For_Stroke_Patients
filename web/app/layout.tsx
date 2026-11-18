@@ -1,28 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Newsreader: editorial serif for page titles and big numerals. Hanken Grotesk: quiet UI sans.
+const display = Newsreader({ variable: "--nf-display", subsets: ["latin"], axes: ["opsz"], display: "swap" });
+const ui = Hanken_Grotesk({ variable: "--nf-ui", subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "IMU Rehab",
-  description: "Home stroke rehabilitation: patient and clinician portal",
+  title: { default: "Arc", template: "%s | Arc" },
+  description: "Home stroke rehabilitation, measured. Patient and clinician portal.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${display.variable} ${ui.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
     </html>

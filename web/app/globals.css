@@ -7,9 +7,18 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--nf-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--nf-display), ui-serif, Georgia, serif;
+  --font-heading: var(--nf-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-brass: var(--brass);
+  --color-brass-ink: var(--brass-ink);
+  --color-moss: var(--moss);
+  --color-amber: var(--amber);
+  --color-madder: var(--madder);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-muted: var(--rail-muted);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,83 +57,122 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Arc design system. Porcelain paper, ink text, spruce primary. Brass is the ONE accent: use it for the
+   improvement numeral, the active-nav marker and the signature trace, nowhere else. Semantic tones: moss
+   (better), amber (watch), madder (alert). Light theme only (clinic and home daylight use). */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: light;
+  --background: #f1f4f3;
+  --foreground: #10222b;
+  --card: #ffffff;
+  --card-foreground: #10222b;
+  --popover: #ffffff;
+  --popover-foreground: #10222b;
+  --primary: #124e4b;
+  --primary-foreground: #f4f8f7;
+  --secondary: #e3e9e7;
+  --secondary-foreground: #10222b;
+  --muted: #e8edeb;
+  --muted-foreground: #53646b;
+  --accent: #e0eae8;
+  --accent-foreground: #0c3b39;
+  --destructive: #a33a32;
+  --border: #d8dfdd;
+  --input: #c4cecb;
+  --ring: #124e4b;
+  --chart-1: #124e4b;
+  --chart-2: #b8893b;
+  --chart-3: #3e6e8e;
+  --chart-4: #6b8f71;
+  --chart-5: #8a5a78;
+  --radius: 0.5rem;
+  --sidebar: #0f2229;
+  --sidebar-foreground: #e8eeec;
+  --sidebar-primary: #c9a15a;
+  --sidebar-primary-foreground: #0f2229;
+  --sidebar-accent: #1a3540;
+  --sidebar-accent-foreground: #f4f8f7;
+  --sidebar-border: #24404b;
+  --sidebar-ring: #c9a15a;
+  --brass: #b8893b;
+  --brass-ink: #7a5518;
+  --moss: #2e7d5b;
+  --amber: #a8681a;
+  --madder: #a33a32;
+  --rail: #0f2229;
+  --rail-foreground: #e8eeec;
+  --rail-muted: #8fa3a8;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    font-optical-sizing: auto;
+  }
+  h1,
+  h2 {
+    font-family: var(--nf-display), ui-serif, Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  table,
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brass) 30%, transparent);
+  }
+}
+
+/* The signature trace is drawn once on load; never loops. */
+@keyframes draw-once {
+  from {
+    stroke-dashoffset: var(--len, 1200);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw-once {
+  stroke-dasharray: var(--len, 1200);
+  animation: draw-once 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) 0.2s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@page {
+  margin: 14mm;
+}
+@media print {
+  body {
+    background: #fff;
+    font-size: 11pt;
   }
 }
