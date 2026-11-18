@@ -61,19 +61,30 @@ export function CreateUserDialog({ doctors }: { doctors: User[] }) {
     <>
       <Button onClick={() => setOpen(true)}>Create user</Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="gap-5 p-6">
           <DialogHeader>
-            <DialogTitle>Create user</DialogTitle>
+            <DialogTitle className="font-display text-2xl">Create user</DialogTitle>
             <DialogDescription>The user logs in with this email and password.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="grid gap-3" noValidate>
-            <div className="grid gap-1.5">
-              <Label htmlFor="cu-role">Role</Label>
-              <NativeSelect id="cu-role" {...register("role")}>
-                <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
-                <option value="admin">Admin</option>
-              </NativeSelect>
+          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="grid gap-4" noValidate>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cu-role">Role</Label>
+                <NativeSelect id="cu-role" {...register("role")}>
+                  <option value="patient">Patient</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="admin">Admin</option>
+                </NativeSelect>
+              </div>
+              {isPatient && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cu-doc">Doctor</Label>
+                  <NativeSelect id="cu-doc" {...register("doctor_id")}>
+                    <option value="">None yet</option>
+                    {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </NativeSelect>
+                </div>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="cu-name">Name</Label>
@@ -92,14 +103,7 @@ export function CreateUserDialog({ doctors }: { doctors: User[] }) {
             </div>
             {isPatient && (
               <>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="cu-doc">Doctor</Label>
-                  <NativeSelect id="cu-doc" {...register("doctor_id")}>
-                    <option value="">None yet</option>
-                    {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </NativeSelect>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
                     <Label htmlFor="cu-side">Affected side</Label>
                     <NativeSelect id="cu-side" {...register("affected_side")}>
@@ -116,7 +120,7 @@ export function CreateUserDialog({ doctors }: { doctors: User[] }) {
               </>
             )}
             {errors.root && <p role="alert" className="text-sm text-destructive">{errors.root.message}</p>}
-            <Button type="submit" disabled={create.isPending}>{create.isPending ? "Creating..." : "Create user"}</Button>
+            <div className="flex justify-end"><Button type="submit" disabled={create.isPending}>{create.isPending ? "Creating..." : "Create user"}</Button></div>
           </form>
         </DialogContent>
       </Dialog>
