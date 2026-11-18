@@ -22,7 +22,7 @@ enum ToolMode {
 }
 
 # Configuration
-const REQUIRED_REPS: int = 3
+const DEFAULT_REPS: int = 3
 const UDP_PORT: int = 4242
 # Rep-completion events go to the IMU server, which pairs each rep with sensor features (server/README.md).
 const SERVER_EVENT_URL: String = "http://127.0.0.1:8000/api/game_event"
@@ -124,6 +124,8 @@ var udp_server: PacketPeerUDP
 var ws_url: String
 var ws_peer: WebSocketPeer  # web build: tilt arrives over WebSocket /ws/game (browsers have no UDP)
 var server_event_url: String = SERVER_EVENT_URL
+var required_reps: int = DEFAULT_REPS  # web build: replaced by the patient plan's reps_per_level
+var allowed_levels: Array[int] = []  # web build: plan's levels_allowed; empty = all 9
 var control_mode: ControlMode = ControlMode.HYBRID_AUTO
 var imu_connected: bool = false
 var game_mode: String = "normal"  # "normal" (9 IMU levels) or "load" (3 load cell levels)
@@ -294,6 +296,42 @@ func _post_to_server(path: String) -> void:
 		http.queue_free()
 
 
+func _fetch_plan(origin: String) -> void:
+	# Web build only: the portal's per-patient plan (reps per level, allowed levels). Any failure keeps the defaults.
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(_on_plan_loaded.bind(http))
+	if http.request(origin + "/api/plan") != OK:
+		http.queue_free()
+
+
+func _on_plan_loaded(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest) -> void:
+	http.queue_free()
+	if code != 200:
+		return  # 404 no plan, 401 not logged in, 0 network error: defaults
+	var plan = JSON.parse_string(body.get_string_from_utf8())
+	if not plan is Dictionary:
+		return
+	var levels: Array[int] = []
+	for l in plan.get("levels_allowed", []):
+		if int(l) >= 1 and int(l) <= 9 and not levels.has(int(l)):
+			levels.append(int(l))
+	levels.sort()
+	allowed_levels = levels
+	required_reps = clampi(int(plan.get("reps_per_level", DEFAULT_REPS)), 1, 50)
+	var shown: String = "levels " + str(allowed_levels) if not allowed_levels.is_empty() else "all levels"
+	print("[plan] loaded: %s, %d reps per level" % [shown, required_reps])
+	_show_encouragement("Plan loaded: %s, %d reps per level." % [shown, required_reps])
+
+
+func _nearest_allowed_level(stage: int) -> int:
+	var best: int = stage
+	for l in allowed_levels:
+		if not allowed_levels.has(best) or absi(l - stage) < absi(best - stage):
+			best = l
+	return best
+
+
 func _tare_load_cell() -> void:
 	_post_to_server("tare_load/" + IMU_DEVICE_ID)  # server makes the current reading 0 kg; cell must be unloaded
 	_show_encouragement("Load cell zeroed. Keep it unloaded.")
@@ -322,6 +360,7 @@ func _init_udp_server() -> void:
 		ws_peer = WebSocketPeer.new()
 		ws_url = origin.replace("http", "ws") + "/ws/game"  # http->ws, https->wss
 		ws_peer.connect_to_url(ws_url)
+		_fetch_plan(origin)
 		return
 	udp_server = PacketPeerUDP.new()
 	var err = udp_server.bind(UDP_PORT, "0.0.0.0")
@@ -407,6 +446,8 @@ func _input(event: InputEvent) -> void:
 func show_level_intro(stage: int) -> void:
 	# 9 levels, one task each: stage 1-3 = old level 1 tasks, 4-6 = old level 2, 7-9 = old level 3.
 	current_stage = clampi(stage, 1, 3 if game_mode == "load" else 9)
+	if game_mode != "load":
+		current_stage = _nearest_allowed_level(current_stage)  # plan restriction (web build); no-op when allowed_levels is empty
 	current_level = (int((current_stage - 1) / 3.0) + 1) as DifficultyLevel
 	current_task_index = (current_stage - 1) % 3
 	current_rep = 1
@@ -480,7 +521,7 @@ func _fill_load_intro() -> void:
 	intro_title.text = "Water the plant: " + lv["name"]
 	intro_subtitle.text = "Load cell level %d of 3" % current_stage
 	intro_objective.text = "Builds grip and pressing force control. Squeeze the load cell so the force stays inside the target band until the plant is watered. No arm movement needed."
-	intro_tasks_list.text = _format_task_list([["Squeeze and hold", "Force %.1f to %.1f for %.0f s, %d times." % [lv["lo"], lv["hi"], lv["hold"], REQUIRED_REPS]]])
+	intro_tasks_list.text = _format_task_list([["Squeeze and hold", "Force %.1f to %.1f for %.0f s, %d times." % [lv["lo"], lv["hi"], lv["hold"], required_reps]]])
 	intro_posture_tip.text = lv["tip"] + " Keep the load cell unloaded when you press Start (it zeroes then; Z zeroes again). No load cell? Hold Space to test."
 	stage_label.text = "Load cell level %d of 3" % current_stage
 	target_growth_scale = lv["g0"]
@@ -580,7 +621,7 @@ func start_task() -> void:
 
 	task_name_label.text = task_name
 	task_desc_label.text = task_desc
-	reps_label.text = "%d of %d" % [current_rep, REQUIRED_REPS]
+	reps_label.text = "%d of %d" % [current_rep, required_reps]
 
 	rep_start_time_msec = Time.get_ticks_msec()
 	rep_posture_errors = 0
@@ -596,7 +637,7 @@ func _start_load_task() -> void:
 	_set_active_tool(ToolMode.WATERING_CAN)
 	task_name_label.text = "Water the plant: " + lv["name"]
 	task_desc_label.text = "Squeeze the load cell: force %.1f to %.1f for %.0f s." % [lv["lo"], lv["hi"], lv["hold"]]
-	reps_label.text = "%d of %d" % [current_rep, REQUIRED_REPS]
+	reps_label.text = "%d of %d" % [current_rep, required_reps]
 	rep_start_time_msec = Time.get_ticks_msec()
 	rep_posture_errors = 0
 	rep_speed_samples.clear()
@@ -633,7 +674,7 @@ func _process_load_level(delta: float) -> void:
 		soil_mat.albedo_color = Color(0.32, 0.22, 0.14).lerp(Color(0.18, 0.11, 0.06), clampf(load_progress, 0.0, 1.0))
 		if randf() < 0.40:
 			_spawn_water_droplet()
-	var overall: float = (float(current_rep - 1) + clampf(load_progress, 0.0, 1.0)) / float(REQUIRED_REPS)
+	var overall: float = (float(current_rep - 1) + clampf(load_progress, 0.0, 1.0)) / float(required_reps)
 	target_growth_scale = lerpf(lv["g0"], lv["g1"], overall)
 	flower_bloom.visible = current_stage == 3 and overall > 0.95
 	if load_progress >= 1.0:
@@ -1021,7 +1062,7 @@ func _report_rep_to_server(record: Dictionary) -> void:
 		"task": record["task"],
 		"rep": record["repetition"],
 		"duration_s": record["duration_sec"],
-		"reps_required": REQUIRED_REPS,
+		"reps_required": required_reps,
 	})
 	if http.request(server_event_url, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
 		http.queue_free()
@@ -1030,6 +1071,9 @@ func _report_rep_to_server(record: Dictionary) -> void:
 func _on_rep_reported(_result: int, code: int, _headers: PackedStringArray, reply: PackedByteArray, http: HTTPRequest, record: Dictionary) -> void:
 	if code == 200:
 		_apply_server_feedback(JSON.parse_string(reply.get_string_from_utf8()), record)
+	elif code == 401 or code == 409:
+		push_warning("[game_event] server returned %d: no active session" % code)
+		_show_encouragement("Session not active: start a session in the portal.")
 	http.queue_free()
 
 
@@ -1128,7 +1172,7 @@ func _complete_current_repetition() -> void:
 
 	await get_tree().create_timer(1.2).timeout
 
-	if current_rep < REQUIRED_REPS:
+	if current_rep < required_reps:
 		current_rep += 1
 		start_task()
 	elif game_mode == "load":
@@ -1153,7 +1197,7 @@ func _show_load_summary() -> void:
 	summary_title.text = "Load cell level %d of 3 report" % current_stage
 	summary_stats_label.text = "[table=3]" + \
 		_metric_cell("%.1f s" % total_time, "Total time, %.1f s per rep" % (total_time / n)) + \
-		_metric_cell("%d of %d" % [count, REQUIRED_REPS], "Repetitions") + \
+		_metric_cell("%d of %d" % [count, required_reps], "Repetitions") + \
 		_metric_cell("%.1f" % (peak_sum / n), "Average peak force") + \
 		_metric_cell("%.1f to %.1f" % [lv["lo"], lv["hi"]], "Target force band") + \
 		_metric_cell("%.0f s" % lv["hold"], "Hold per rep") + \
@@ -1198,7 +1242,7 @@ func _show_level_summary() -> void:
 
 	summary_stats_label.text = "[table=3]" + \
 		_metric_cell("%.1f s" % total_time, "Total time, %.1f s per rep" % (total_time / maxf(1.0, float(count)))) + \
-		_metric_cell("%d of %d" % [count, REQUIRED_REPS], "Repetitions") + \
+		_metric_cell("%d of %d" % [count, required_reps], "Repetitions") + \
 		_metric_cell("%.0f%%" % avg_smoothness, "Smoothness") + \
 		_metric_cell("%.2f m" % total_path, "Hand path length") + \
 		_metric_cell(str(total_errors), "Posture alerts") + \
