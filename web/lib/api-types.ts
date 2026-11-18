@@ -33,6 +33,7 @@ export interface paths {
         /**
          * Game Event
          * @description The game finished a rep. Pair it with the sensor features over that rep's time window.
+         *     With a patient login cookie (platform mode) the rep is also stored in the patient's open session and the plan applies.
          */
         post: operations["game_event_api_game_event_post"];
         delete?: never;
