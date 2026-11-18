@@ -1,0 +1,45 @@
+# One command: docker compose up --build   (copy .env.example to .env first)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: imu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: imu
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U imu -d imu"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./server
+    environment:
+      DATABASE_URL: postgresql+psycopg://imu:${POSTGRES_PASSWORD}@db:5432/imu
+      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      STUB_MODE: ${STUB_MODE:-true}
+      IMU_RAW_DIR: /data/raw
+      IMU_PROCESSED_DIR: /data/processed
+    volumes: [./data:/data]
+    depends_on:
+      db: {condition: service_healthy}
+    ports: ["8000:8000"]  # LAN: the ESP32 can use http://<pc-ip>:8000 directly. Remove in the cloud (Caddy only).
+
+  web:
+    build: ./web
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    ports: ["80:80", "443:443"]
+    depends_on: [web, api]
+
+volumes:
+  pgdata:
+  caddy_data:

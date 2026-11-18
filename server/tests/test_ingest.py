@@ -1,28 +1,21 @@
-"""Run: python test_app.py"""
+"""Run: pytest (from server/)"""
 import json
 import math
-import os
-import socket
-import tempfile
 
-os.environ["IMU_RAW_DIR"] = tempfile.mkdtemp()
-os.environ["IMU_PROCESSED_DIR"] = tempfile.mkdtemp()
-game = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # stands in for the Godot game
-game.bind(("127.0.0.1", 0))
-game.settimeout(2)
-os.environ["GAME_PORT"] = str(game.getsockname()[1])
+from conftest import game  # noqa: E402  (env + UDP stand-in for the Godot game are set up there, before any server import)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-import app  # noqa: E402
-from app import ClockMap  # noqa: E402
+import ingest  # noqa: E402
+import main  # noqa: E402
+from ingest import ClockMap  # noqa: E402
 from features import WristReps  # noqa: E402
 from orientation import Tilt, accel_to_angles  # noqa: E402
 from quality import level_quality, next_level, score  # noqa: E402
 
 # Entered once: all requests share one event loop, like uvicorn. Without it each WebSocket gets its own
 # loop and the cross-connection broadcast to /ws/live never arrives.
-client = TestClient(app.app).__enter__()
+client = TestClient(main.app).__enter__()
 
 
 def batch(seq, t0, n=10, ax=0.0):
@@ -145,7 +138,7 @@ def test():
     b = batch(3, 100_000)  # seq 1,2 lost
     b["load"] = 250_000.0  # load cell counts; game gets counts / LOAD_SCALE
     assert client.post("/api/imu", json=b).status_code == 200
-    assert json.loads(game.recv(1024))["load"] == 250_000.0 / app.LOAD_SCALE
+    assert json.loads(game.recv(1024))["load"] == 250_000.0 / ingest.LOAD_SCALE
     assert client.post("/api/imu", json=batch(4, 200_000, ax=20.0)).status_code == 422  # > ±16 g
     bad = batch(4, 200_000)
     bad["samples"][5]["timestamp"] = 0
@@ -206,9 +199,3 @@ def test():
     print("ok")
 
 
-if __name__ == "__main__":
-    test_tilt()
-    test_reps()
-    test_quality()
-    test_clock()
-    test()

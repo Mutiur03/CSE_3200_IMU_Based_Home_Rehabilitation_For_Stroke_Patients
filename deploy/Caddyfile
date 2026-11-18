@@ -1,0 +1,11 @@
+# One origin for everything so the HttpOnly login cookie reaches the site, the API, the game and the ESP32 WebSocket.
+# SITE_ADDRESS=:80 on a LAN laptop; set it to your domain in the cloud and Caddy gets a TLS cert automatically (WebSockets become wss://).
+{$SITE_ADDRESS::80} {
+	@backend path /api/* /ws/* /play /play/* /lab
+	handle @backend {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

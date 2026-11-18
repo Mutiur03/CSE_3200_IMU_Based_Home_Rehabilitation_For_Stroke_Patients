@@ -1,4 +1,4 @@
-"""IMU ingestion server.
+"""IMU ingestion: device stream, live views, game events (routes on `router`, mounted by main.py).
 
 ESP32 --(WS /ws/imu or POST /api/imu)--> validate --> raw JSONL log + live broadcast (/ws/live)
                                                   --> tilt (orientation.py) --> UDP to Godot game
@@ -12,9 +12,7 @@ import time
 from collections import deque
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from features import ENTER_DEG, EXIT_DEG, WristReps, diff, pick, window_features
@@ -196,7 +194,7 @@ devices: dict[str, Device] = {}
 invalid_packets = 0
 live_clients: set[WebSocket] = set()
 game_clients: set[WebSocket] = set()  # web build of the game (browsers can't receive UDP)
-app = FastAPI(title="IMU Rehab Server")
+router = APIRouter()
 
 
 async def ingest(raw: str | bytes, via_ws: bool = False) -> Batch:
@@ -242,7 +240,7 @@ def send_to_game(dev: Device):
     return msg
 
 
-@app.websocket("/ws/imu")
+@router.websocket("/ws/imu")
 async def imu_stream(ws: WebSocket):
     await ws.accept()
     dev = None
@@ -264,7 +262,7 @@ async def imu_stream(ws: WebSocket):
                 dev.ws = None
 
 
-@app.post("/api/imu")
+@router.post("/api/imu")
 async def imu_post(request: Request):
     try:
         batch = await ingest(await request.body())
@@ -282,7 +280,7 @@ class GameEvent(BaseModel):
     duration_s: float = Field(gt=0, le=600)  # game-measured rep duration; window = the last duration_s before this event
 
 
-@app.post("/api/game_event")
+@router.post("/api/game_event")
 async def game_event(ev: GameEvent):
     """The game finished a rep. Pair it with the sensor features over that rep's time window."""
     dev = devices.get(ev.device_id)
@@ -326,7 +324,7 @@ async def buzz(dev: Device):
             dev.ws = None
 
 
-@app.post("/api/rep_done/{device_id}")
+@router.post("/api/rep_done/{device_id}")
 async def rep_done(device_id: str):
     """Buzz only, no scoring or adaptation (used by the load cell game)."""
     dev = devices.get(device_id)
@@ -336,7 +334,7 @@ async def rep_done(device_id: str):
     return {"ok": True}
 
 
-@app.post("/api/tare_load/{device_id}")
+@router.post("/api/tare_load/{device_id}")
 def tare_load(device_id: str):
     """Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded."""
     dev = devices.get(device_id)
@@ -347,7 +345,7 @@ def tare_load(device_id: str):
     return {"ok": True, "offset_counts": dev.load_offset}
 
 
-@app.post("/api/zero/{device_id}")
+@router.post("/api/zero/{device_id}")
 def zero(device_id: str):
     """Calibrate: the current pose becomes the neutral for rep detection. Hold the arm at rest first."""
     dev = devices.get(device_id)
@@ -358,7 +356,7 @@ def zero(device_id: str):
     return {"ok": True, "neutral_deg": round(angle, 2)}
 
 
-@app.post("/api/reps/reset/{device_id}")
+@router.post("/api/reps/reset/{device_id}")
 def reset_reps(device_id: str):
     """Zero the rep counter, keep the neutral."""
     dev = devices.get(device_id)
@@ -372,7 +370,7 @@ def reset_reps(device_id: str):
     return {"ok": True}
 
 
-@app.post("/api/adapt/{mode}")
+@router.post("/api/adapt/{mode}")
 def set_adapt(mode: str):
     """Turn quality-driven level choice on or off (off = always go to the next level; quality is still computed)."""
     global ADAPT
@@ -382,7 +380,7 @@ def set_adapt(mode: str):
     return {"ok": True, "adapt": ADAPT}
 
 
-@app.get("/api/session")
+@router.get("/api/session")
 def session():
     """Per-device session summary from the game reps so far, plus link health."""
     out = {}
@@ -414,7 +412,7 @@ def session():
     return out
 
 
-@app.post("/api/axis/{axis}")
+@router.post("/api/axis/{axis}")
 def set_axis(axis: str):
     """Switch the rep channel for all devices. Neutral is cleared (re-set on stillness or Zero)."""
     global REP_AXIS
@@ -426,7 +424,7 @@ def set_axis(axis: str):
     return {"ok": True, "axis": axis}
 
 
-@app.get("/api/status")
+@router.get("/api/status")
 def status():
     return {
         "server_time_ms": int(time.time() * 1000),
@@ -435,7 +433,7 @@ def status():
     }
 
 
-@app.websocket("/ws/live")
+@router.websocket("/ws/live")
 async def live(ws: WebSocket):
     await ws.accept()
     live_clients.add(ws)
@@ -446,7 +444,7 @@ async def live(ws: WebSocket):
         live_clients.discard(ws)
 
 
-@app.websocket("/ws/game")
+@router.websocket("/ws/game")
 async def game_feed(ws: WebSocket):
     await ws.accept()
     game_clients.add(ws)
@@ -455,21 +453,3 @@ async def game_feed(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         game_clients.discard(ws)
-
-
-@app.get("/")
-def dashboard():
-    return FileResponse(Path(__file__).parent / "dashboard.html")
-
-
-# Web build of the game (Godot export into server/web/), served same-origin so no CORS is needed: http://<pc-ip>:8000/play/
-WEB_DIR = Path(__file__).parent / "web"
-if WEB_DIR.is_dir():
-    app.mount("/play", StaticFiles(directory=WEB_DIR, html=True), name="play")
-
-if __name__ == "__main__":
-    import uvicorn
-
-    # 0.0.0.0 so the ESP32 can reach it on the LAN. Reload is opt-in (IMU_RELOAD=1): a restart mid-session drops the
-    # ESP32 link and clears the dashboard counters (the ESP32 reconnects by itself, but buffers only ~4 s).
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=os.environ.get("IMU_RELOAD") == "1")

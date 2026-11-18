@@ -1,0 +1,2845 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "IMU Rehab Platform",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/imu": {
+   "post": {
+    "summary": "Imu Post",
+    "operationId": "imu_post_api_imu_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/game_event": {
+   "post": {
+    "summary": "Game Event",
+    "description": "The game finished a rep. Pair it with the sensor features over that rep's time window.",
+    "operationId": "game_event_api_game_event_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GameEvent"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/rep_done/{device_id}": {
+   "post": {
+    "summary": "Rep Done",
+    "description": "Buzz only, no scoring or adaptation (used by the load cell game).",
+    "operationId": "rep_done_api_rep_done__device_id__post",
+    "parameters": [
+     {
+      "name": "device_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Device Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/tare_load/{device_id}": {
+   "post": {
+    "summary": "Tare Load",
+    "description": "Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded.",
+    "operationId": "tare_load_api_tare_load__device_id__post",
+    "parameters": [
+     {
+      "name": "device_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Device Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/zero/{device_id}": {
+   "post": {
+    "summary": "Zero",
+    "description": "Calibrate: the current pose becomes the neutral for rep detection. Hold the arm at rest first.",
+    "operationId": "zero_api_zero__device_id__post",
+    "parameters": [
+     {
+      "name": "device_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Device Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/reps/reset/{device_id}": {
+   "post": {
+    "summary": "Reset Reps",
+    "description": "Zero the rep counter, keep the neutral.",
+    "operationId": "reset_reps_api_reps_reset__device_id__post",
+    "parameters": [
+     {
+      "name": "device_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Device Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/adapt/{mode}": {
+   "post": {
+    "summary": "Set Adapt",
+    "description": "Turn quality-driven level choice on or off (off = always go to the next level; quality is still computed).",
+    "operationId": "set_adapt_api_adapt__mode__post",
+    "parameters": [
+     {
+      "name": "mode",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Mode"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/session": {
+   "get": {
+    "summary": "Session",
+    "description": "Per-device session summary from the game reps so far, plus link health.",
+    "operationId": "session_api_session_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/axis/{axis}": {
+   "post": {
+    "summary": "Set Axis",
+    "description": "Switch the rep channel for all devices. Neutral is cleared (re-set on stillness or Zero).",
+    "operationId": "set_axis_api_axis__axis__post",
+    "parameters": [
+     {
+      "name": "axis",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Axis"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/status": {
+   "get": {
+    "summary": "Status",
+    "operationId": "status_api_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Login",
+    "operationId": "login_api_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/logout": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Logout",
+    "operationId": "logout_api_auth_logout_post",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     }
+    }
+   }
+  },
+  "/api/auth/me": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Me",
+    "operationId": "me_api_auth_me_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Users",
+    "operationId": "users_api_admin_users_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/UserOut"
+         },
+         "type": "array",
+         "title": "Response Users Api Admin Users Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create User",
+    "operationId": "create_user_api_admin_users_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/patients/{patient_id}/doctor": {
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Assign Doctor",
+    "operationId": "assign_doctor_api_admin_patients__patient_id__doctor_put",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AssignIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/devices": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Devices",
+    "operationId": "devices_api_admin_devices_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/DeviceOut"
+         },
+         "type": "array",
+         "title": "Response Devices Api Admin Devices Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Register Device",
+    "operationId": "register_device_api_admin_devices_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceRegisterIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DeviceRegisterOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients": {
+   "get": {
+    "tags": [
+     "patients"
+    ],
+    "summary": "List Patients",
+    "operationId": "list_patients_api_patients_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PatientSummary"
+         },
+         "type": "array",
+         "title": "Response List Patients Api Patients Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}": {
+   "get": {
+    "tags": [
+     "patients"
+    ],
+    "summary": "Detail",
+    "operationId": "detail_api_patients__patient_id__get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PatientDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/progress": {
+   "get": {
+    "tags": [
+     "patients"
+    ],
+    "summary": "Progress",
+    "operationId": "progress_api_patients__patient_id__progress_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Progress"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/start": {
+   "post": {
+    "tags": [
+     "sessions"
+    ],
+    "summary": "Start",
+    "operationId": "start_api_sessions_start_post",
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/end": {
+   "post": {
+    "tags": [
+     "sessions"
+    ],
+    "summary": "End",
+    "operationId": "end_api_sessions_end_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/current": {
+   "get": {
+    "tags": [
+     "sessions"
+    ],
+    "summary": "Current",
+    "operationId": "current_api_sessions_current_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/SessionOut"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "title": "Response Current Api Sessions Current Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/sessions": {
+   "get": {
+    "tags": [
+     "sessions"
+    ],
+    "summary": "List Sessions",
+    "operationId": "list_sessions_api_patients__patient_id__sessions_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/SessionOut"
+         },
+         "title": "Response List Sessions Api Patients  Patient Id  Sessions Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}": {
+   "get": {
+    "tags": [
+     "sessions"
+    ],
+    "summary": "Session Detail",
+    "operationId": "session_detail_api_sessions__session_id__get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/assessments": {
+   "get": {
+    "tags": [
+     "assessments"
+    ],
+    "summary": "List Assessments",
+    "operationId": "list_assessments_api_patients__patient_id__assessments_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/AssessmentOut"
+         },
+         "title": "Response List Assessments Api Patients  Patient Id  Assessments Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "assessments"
+    ],
+    "summary": "Create Assessment",
+    "operationId": "create_assessment_api_patients__patient_id__assessments_post",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AssessmentIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AssessmentOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/alert-rules": {
+   "get": {
+    "tags": [
+     "assessments"
+    ],
+    "summary": "Get Alert Rule",
+    "operationId": "get_alert_rule_api_patients__patient_id__alert_rules_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlertRuleIO"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "assessments"
+    ],
+    "summary": "Put Alert Rule",
+    "operationId": "put_alert_rule_api_patients__patient_id__alert_rules_put",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AlertRuleIO"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlertRuleIO"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/plan": {
+   "get": {
+    "tags": [
+     "plans"
+    ],
+    "summary": "My Plan",
+    "operationId": "my_plan_api_plan_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/plan": {
+   "get": {
+    "tags": [
+     "plans"
+    ],
+    "summary": "Get Plan",
+    "operationId": "get_plan_api_patients__patient_id__plan_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "plans"
+    ],
+    "summary": "Put Plan",
+    "operationId": "put_plan_api_patients__patient_id__plan_put",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlanOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/messages": {
+   "get": {
+    "tags": [
+     "messages"
+    ],
+    "summary": "List Messages",
+    "operationId": "list_messages_api_patients__patient_id__messages_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/MessageOut"
+         },
+         "title": "Response List Messages Api Patients  Patient Id  Messages Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "messages"
+    ],
+    "summary": "Send",
+    "operationId": "send_api_patients__patient_id__messages_post",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MessageIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}/trace": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Trace",
+    "operationId": "trace_api_sessions__session_id__trace_get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Trace"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/reps.csv": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Reps Csv",
+    "operationId": "reps_csv_api_patients__patient_id__reps_csv_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/": {
+   "get": {
+    "summary": "Dashboard",
+    "operationId": "dashboard__get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/lab": {
+   "get": {
+    "summary": "Dashboard",
+    "operationId": "dashboard_lab_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AlertRuleIO": {
+    "properties": {
+     "max_days_without_session": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Days Without Session"
+     },
+     "quality_drop_pct": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 100.0,
+        "exclusiveMinimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quality Drop Pct"
+     }
+    },
+    "type": "object",
+    "title": "AlertRuleIO"
+   },
+   "AssessmentIn": {
+    "properties": {
+     "assessed_on": {
+      "type": "string",
+      "format": "date",
+      "title": "Assessed On"
+     },
+     "rubric": {
+      "$ref": "#/components/schemas/Rubric"
+     },
+     "scale_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scale Name"
+     },
+     "scale_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scale Score"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 4000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comment"
+     }
+    },
+    "type": "object",
+    "required": [
+     "assessed_on",
+     "rubric"
+    ],
+    "title": "AssessmentIn"
+   },
+   "AssessmentOut": {
+    "properties": {
+     "assessed_on": {
+      "type": "string",
+      "format": "date",
+      "title": "Assessed On"
+     },
+     "rubric": {
+      "$ref": "#/components/schemas/Rubric"
+     },
+     "scale_name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scale Name"
+     },
+     "scale_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scale Score"
+     },
+     "comment": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 4000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comment"
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "doctor_id": {
+      "type": "integer",
+      "title": "Doctor Id"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "assessed_on",
+     "rubric",
+     "id",
+     "patient_id",
+     "doctor_id",
+     "created_at"
+    ],
+    "title": "AssessmentOut"
+   },
+   "AssignIn": {
+    "properties": {
+     "doctor_id": {
+      "type": "integer",
+      "title": "Doctor Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "doctor_id"
+    ],
+    "title": "AssignIn"
+   },
+   "DeviceOut": {
+    "properties": {
+     "device_id": {
+      "type": "string",
+      "title": "Device Id"
+     },
+     "patient_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patient Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "device_id",
+     "patient_id"
+    ],
+    "title": "DeviceOut"
+   },
+   "DeviceRegisterIn": {
+    "properties": {
+     "device_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Device Id"
+     },
+     "patient_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Patient Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "device_id"
+    ],
+    "title": "DeviceRegisterIn"
+   },
+   "DeviceRegisterOut": {
+    "properties": {
+     "device_id": {
+      "type": "string",
+      "title": "Device Id"
+     },
+     "device_key": {
+      "type": "string",
+      "title": "Device Key"
+     }
+    },
+    "type": "object",
+    "required": [
+     "device_id",
+     "device_key"
+    ],
+    "title": "DeviceRegisterOut"
+   },
+   "GameEvent": {
+    "properties": {
+     "device_id": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Device Id"
+     },
+     "level": {
+      "type": "integer",
+      "maximum": 9.0,
+      "minimum": 1.0,
+      "title": "Level"
+     },
+     "task": {
+      "type": "string",
+      "maxLength": 100,
+      "title": "Task"
+     },
+     "rep": {
+      "type": "integer",
+      "title": "Rep"
+     },
+     "reps_required": {
+      "type": "integer",
+      "maximum": 50.0,
+      "minimum": 1.0,
+      "title": "Reps Required",
+      "default": 3
+     },
+     "duration_s": {
+      "type": "number",
+      "maximum": 600.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Duration S"
+     }
+    },
+    "type": "object",
+    "required": [
+     "device_id",
+     "level",
+     "task",
+     "rep",
+     "duration_s"
+    ],
+    "title": "GameEvent"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "Improvement": {
+    "properties": {
+     "baseline_sessions": {
+      "type": "integer",
+      "title": "Baseline Sessions"
+     },
+     "current_sessions": {
+      "type": "integer",
+      "title": "Current Sessions"
+     },
+     "metrics": {
+      "items": {
+       "$ref": "#/components/schemas/MetricChange"
+      },
+      "type": "array",
+      "title": "Metrics"
+     },
+     "index": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Index"
+     },
+     "note": {
+      "type": "string",
+      "title": "Note",
+      "default": "Descriptive, relative to the patient's own baseline. Not clinically validated."
+     }
+    },
+    "type": "object",
+    "required": [
+     "baseline_sessions",
+     "current_sessions",
+     "metrics",
+     "index"
+    ],
+    "title": "Improvement"
+   },
+   "LoginIn": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "LoginIn"
+   },
+   "MessageIn": {
+    "properties": {
+     "body": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Body"
+     }
+    },
+    "type": "object",
+    "required": [
+     "body"
+    ],
+    "title": "MessageIn"
+   },
+   "MessageOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "from_user": {
+      "type": "integer",
+      "title": "From User"
+     },
+     "from_name": {
+      "type": "string",
+      "title": "From Name"
+     },
+     "body": {
+      "type": "string",
+      "title": "Body"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "read_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Read At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "patient_id",
+     "from_user",
+     "from_name",
+     "body",
+     "created_at",
+     "read_at"
+    ],
+    "title": "MessageOut"
+   },
+   "MetricChange": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "enum": [
+       "roll_range",
+       "pitch_range",
+       "duration",
+       "speed_peaks",
+       "quality"
+      ],
+      "title": "Name"
+     },
+     "baseline": {
+      "type": "number",
+      "title": "Baseline"
+     },
+     "current": {
+      "type": "number",
+      "title": "Current"
+     },
+     "improvement_pct": {
+      "type": "number",
+      "title": "Improvement Pct"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "baseline",
+     "current",
+     "improvement_pct"
+    ],
+    "title": "MetricChange"
+   },
+   "PatientDetail": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "device_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Device Id"
+     },
+     "last_session_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Session At"
+     },
+     "sessions_total": {
+      "type": "integer",
+      "title": "Sessions Total"
+     },
+     "mean_quality": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Quality"
+     },
+     "improvement_index": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Improvement Index"
+     },
+     "flags": {
+      "items": {
+       "$ref": "#/components/schemas/PatientFlag"
+      },
+      "type": "array",
+      "title": "Flags"
+     },
+     "email": {
+      "type": "string",
+      "title": "Email"
+     },
+     "doctor_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Doctor Id"
+     },
+     "affected_side": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Affected Side"
+     },
+     "onset_date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Onset Date"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PlanOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "alert_rule": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AlertRuleIO"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "device_id",
+     "last_session_at",
+     "sessions_total",
+     "mean_quality",
+     "improvement_index",
+     "flags",
+     "email",
+     "doctor_id",
+     "affected_side",
+     "onset_date",
+     "notes",
+     "plan",
+     "alert_rule"
+    ],
+    "title": "PatientDetail"
+   },
+   "PatientFlag": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "no_session",
+       "quality_drop"
+      ],
+      "title": "Kind"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind",
+     "message"
+    ],
+    "title": "PatientFlag"
+   },
+   "PatientSummary": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "device_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Device Id"
+     },
+     "last_session_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Session At"
+     },
+     "sessions_total": {
+      "type": "integer",
+      "title": "Sessions Total"
+     },
+     "mean_quality": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Quality"
+     },
+     "improvement_index": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Improvement Index"
+     },
+     "flags": {
+      "items": {
+       "$ref": "#/components/schemas/PatientFlag"
+      },
+      "type": "array",
+      "title": "Flags"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "device_id",
+     "last_session_at",
+     "sessions_total",
+     "mean_quality",
+     "improvement_index",
+     "flags"
+    ],
+    "title": "PatientSummary"
+   },
+   "PlanIn": {
+    "properties": {
+     "levels_allowed": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Levels Allowed"
+     },
+     "reps_per_level": {
+      "type": "integer",
+      "maximum": 50.0,
+      "minimum": 1.0,
+      "title": "Reps Per Level"
+     },
+     "sessions_per_week": {
+      "type": "integer",
+      "maximum": 21.0,
+      "minimum": 0.0,
+      "title": "Sessions Per Week"
+     },
+     "adapt_on": {
+      "type": "boolean",
+      "title": "Adapt On"
+     }
+    },
+    "type": "object",
+    "required": [
+     "levels_allowed",
+     "reps_per_level",
+     "sessions_per_week",
+     "adapt_on"
+    ],
+    "title": "PlanIn"
+   },
+   "PlanOut": {
+    "properties": {
+     "levels_allowed": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Levels Allowed"
+     },
+     "reps_per_level": {
+      "type": "integer",
+      "maximum": 50.0,
+      "minimum": 1.0,
+      "title": "Reps Per Level"
+     },
+     "sessions_per_week": {
+      "type": "integer",
+      "maximum": 21.0,
+      "minimum": 0.0,
+      "title": "Sessions Per Week"
+     },
+     "adapt_on": {
+      "type": "boolean",
+      "title": "Adapt On"
+     },
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "levels_allowed",
+     "reps_per_level",
+     "sessions_per_week",
+     "adapt_on",
+     "patient_id"
+    ],
+    "title": "PlanOut"
+   },
+   "Progress": {
+    "properties": {
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "sessions": {
+      "items": {
+       "$ref": "#/components/schemas/SessionOut"
+      },
+      "type": "array",
+      "title": "Sessions"
+     },
+     "improvement": {
+      "$ref": "#/components/schemas/Improvement"
+     },
+     "assessments": {
+      "items": {
+       "$ref": "#/components/schemas/AssessmentOut"
+      },
+      "type": "array",
+      "title": "Assessments"
+     }
+    },
+    "type": "object",
+    "required": [
+     "patient_id",
+     "sessions",
+     "improvement",
+     "assessments"
+    ],
+    "title": "Progress",
+    "description": "Everything the progress/report pages chart: sessions in time order, the index, and the doctor's marks."
+   },
+   "RepOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "ts": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Ts"
+     },
+     "level": {
+      "type": "integer",
+      "title": "Level"
+     },
+     "task": {
+      "type": "string",
+      "title": "Task"
+     },
+     "rep": {
+      "type": "integer",
+      "title": "Rep"
+     },
+     "duration_s": {
+      "type": "number",
+      "title": "Duration S"
+     },
+     "pitch_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pitch Range Deg"
+     },
+     "roll_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Roll Range Deg"
+     },
+     "peak_speed_dps": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peak Speed Dps"
+     },
+     "speed_peaks": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Speed Peaks"
+     },
+     "quality": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quality"
+     },
+     "timing_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Timing Score"
+     },
+     "smoothness_score": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Smoothness Score"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "ts",
+     "level",
+     "task",
+     "rep",
+     "duration_s",
+     "pitch_range_deg",
+     "roll_range_deg",
+     "peak_speed_dps",
+     "speed_peaks",
+     "quality",
+     "timing_score",
+     "smoothness_score"
+    ],
+    "title": "RepOut"
+   },
+   "Rubric": {
+    "properties": {
+     "range": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Range"
+     },
+     "smoothness": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Smoothness"
+     },
+     "control": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Control"
+     },
+     "adherence": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Adherence"
+     },
+     "overall": {
+      "type": "integer",
+      "maximum": 5.0,
+      "minimum": 1.0,
+      "title": "Overall"
+     }
+    },
+    "type": "object",
+    "required": [
+     "range",
+     "smoothness",
+     "control",
+     "adherence",
+     "overall"
+    ],
+    "title": "Rubric"
+   },
+   "SessionDetail": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "device_id": {
+      "type": "string",
+      "title": "Device Id"
+     },
+     "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Started At"
+     },
+     "ended_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At"
+     },
+     "n_reps": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "N Reps"
+     },
+     "mean_quality": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Quality"
+     },
+     "dropped_packets": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dropped Packets"
+     },
+     "sample_rate_hz": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sample Rate Hz"
+     },
+     "mean_duration_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Duration S"
+     },
+     "mean_roll_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Roll Range Deg"
+     },
+     "mean_pitch_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Pitch Range Deg"
+     },
+     "mean_speed_peaks": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Speed Peaks"
+     },
+     "reps": {
+      "items": {
+       "$ref": "#/components/schemas/RepOut"
+      },
+      "type": "array",
+      "title": "Reps"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "patient_id",
+     "device_id",
+     "started_at",
+     "ended_at",
+     "n_reps",
+     "mean_quality",
+     "dropped_packets",
+     "sample_rate_hz",
+     "reps"
+    ],
+    "title": "SessionDetail"
+   },
+   "SessionOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "device_id": {
+      "type": "string",
+      "title": "Device Id"
+     },
+     "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Started At"
+     },
+     "ended_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At"
+     },
+     "n_reps": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "N Reps"
+     },
+     "mean_quality": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Quality"
+     },
+     "dropped_packets": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dropped Packets"
+     },
+     "sample_rate_hz": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sample Rate Hz"
+     },
+     "mean_duration_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Duration S"
+     },
+     "mean_roll_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Roll Range Deg"
+     },
+     "mean_pitch_range_deg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Pitch Range Deg"
+     },
+     "mean_speed_peaks": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Speed Peaks"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "patient_id",
+     "device_id",
+     "started_at",
+     "ended_at",
+     "n_reps",
+     "mean_quality",
+     "dropped_packets",
+     "sample_rate_hz"
+    ],
+    "title": "SessionOut"
+   },
+   "Trace": {
+    "properties": {
+     "session_id": {
+      "type": "integer",
+      "title": "Session Id"
+     },
+     "rate_hz": {
+      "type": "number",
+      "title": "Rate Hz"
+     },
+     "points": {
+      "items": {
+       "$ref": "#/components/schemas/TracePoint"
+      },
+      "type": "array",
+      "title": "Points"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_id",
+     "rate_hz",
+     "points"
+    ],
+    "title": "Trace"
+   },
+   "TracePoint": {
+    "properties": {
+     "t_s": {
+      "type": "number",
+      "title": "T S"
+     },
+     "pitch": {
+      "type": "number",
+      "title": "Pitch"
+     },
+     "roll": {
+      "type": "number",
+      "title": "Roll"
+     }
+    },
+    "type": "object",
+    "required": [
+     "t_s",
+     "pitch",
+     "roll"
+    ],
+    "title": "TracePoint"
+   },
+   "UserCreate": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "enum": [
+       "patient",
+       "doctor",
+       "admin"
+      ],
+      "title": "Role"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "email": {
+      "type": "string",
+      "maxLength": 254,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 8,
+      "title": "Password"
+     },
+     "doctor_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Doctor Id"
+     },
+     "affected_side": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "left",
+         "right"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Affected Side"
+     },
+     "onset_date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Onset Date"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role",
+     "name",
+     "email",
+     "password"
+    ],
+    "title": "UserCreate"
+   },
+   "UserOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "patient",
+       "doctor",
+       "admin"
+      ],
+      "title": "Role"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "email": {
+      "type": "string",
+      "title": "Email"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "role",
+     "name",
+     "email"
+    ],
+    "title": "UserOut"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}
