@@ -9,12 +9,20 @@ export type Schemas = components["schemas"];
 export type User = Schemas["UserOut"];
 export type Role = User["role"];
 
+/** Error from a non-2xx API reply; `status` lets the UI choose between "try again" and "not found". */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 /** Unwrap an openapi-fetch result: return data or throw an Error with the server's message. */
 export async function unwrap<T>(p: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
   const { data, error, response } = await p;
   if (error !== undefined || data === undefined) {
     const detail = (error as { detail?: unknown } | undefined)?.detail;
-    throw new Error(typeof detail === "string" ? detail : `HTTP ${response.status}`);
+    const notFound = response.status === 403 || response.status === 404;
+    throw new ApiError(notFound ? "Not found, or you do not have access to it." : typeof detail === "string" ? detail : `HTTP ${response.status}`, response.status);
   }
   return data;
 }

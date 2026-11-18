@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api";
 
 export function Loading({ rows = 4 }: { rows?: number }) {
   return (
@@ -15,7 +16,7 @@ export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void 
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 px-4 py-3 text-sm text-destructive">
       <span>{error instanceof Error ? error.message : "Something went wrong. Check your connection and try again."}</span>
-      {retry && (
+      {retry && !(error instanceof ApiError && error.status < 500) && (
         <Button size="sm" variant="outline" onClick={retry}>
           Try again
         </Button>
