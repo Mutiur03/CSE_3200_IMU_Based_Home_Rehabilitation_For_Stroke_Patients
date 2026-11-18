@@ -8,6 +8,7 @@ import { Stat } from "@/components/stat";
 import { StatusPill } from "@/components/status-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Empty, ErrorBox, Loading } from "./states";
+import { ScrollFade } from "./scroll-fade";
 import { TD, TH, fmtDateTime, fmtNum, fmtPct, fmtRelative, signTone } from "./format";
 import { usePatients } from "./queries";
 
@@ -79,61 +80,71 @@ export function PatientList() {
       ) : rows.length === 0 ? (
         <Empty>{flaggedOnly ? "No flagged patients. Clear the filter to see everyone." : "No patients are assigned to you yet. Ask an administrator to assign patients to your account."}</Empty>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className={TH}>Name</TableHead>
-              <TableHead className={TH}>Device</TableHead>
-              <TableHead className={TH}>Last session</TableHead>
-              <TableHead className={`${TH} text-right`}>Sessions</TableHead>
-              <TableHead className={`${TH} text-right`}>Mean quality</TableHead>
-              <TableHead className={`${TH} text-right`}>Improvement index</TableHead>
-              <TableHead className={TH}>Flags</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className={TD}>
-                  <Link
-                    href={`/doctor/patients/${p.id}`}
-                    className="-mx-1 inline-flex min-h-11 items-center rounded px-1 font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    {p.name}
-                  </Link>
-                </TableCell>
-                <TableCell className={`${TD} text-muted-foreground`}>{p.device_id ?? "None"}</TableCell>
-                <TableCell className={TD}>
-                  <span title={fmtDateTime(p.last_session_at)}>{fmtRelative(p.last_session_at)}</span>
-                </TableCell>
-                <TableCell className={`${TD} text-right`}>{p.sessions_total}</TableCell>
-                <TableCell className={`${TD} text-right`}>
-                  <span className="font-display text-xl">{fmtNum(p.mean_quality)}</span>
-                </TableCell>
-                <TableCell className={`${TD} text-right`}>
-                  <span className={`font-display text-xl ${signTone(p.improvement_index)}`}>{fmtPct(p.improvement_index)}</span>
-                </TableCell>
-                <TableCell className={TD}>
-                  <div className="flex gap-1.5">
-                    {p.flags.length === 0 ? (
-                      <span className="text-muted-foreground">None</span>
-                    ) : (
-                      p.flags.map((f) => (
+        <ScrollFade>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={TH}>Name</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>Device</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>Last session</TableHead>
+                <TableHead className={`${TH} hidden text-right md:table-cell`}>Sessions</TableHead>
+                <TableHead className={`${TH} hidden text-right md:table-cell`}>Mean quality</TableHead>
+                <TableHead className={`${TH} text-right`}>Improvement index</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>Flags</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className={TD}>
+                    <Link
+                      href={`/doctor/patients/${p.id}`}
+                      className="-mx-1 inline-flex min-h-11 items-center rounded px-1 font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      {p.name}
+                    </Link>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-sm md:hidden">
+                      <span className="text-muted-foreground">
+                        Quality <span className="tnum text-foreground">{fmtNum(p.mean_quality)}</span>
+                      </span>
+                      {p.flags.map((f) => (
                         <StatusPill key={f.kind} tone="madder">
                           {f.message}
                         </StatusPill>
-                      ))
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className={`${TD} hidden text-muted-foreground md:table-cell`}>{p.device_id ?? "None"}</TableCell>
+                  <TableCell className={TD}>
+                    <span title={fmtDateTime(p.last_session_at)}>{fmtRelative(p.last_session_at)}</span>
+                  </TableCell>
+                  <TableCell className={`${TD} hidden text-right md:table-cell`}>{p.sessions_total}</TableCell>
+                  <TableCell className={`${TD} hidden text-right md:table-cell`}>
+                    <span className="font-display text-xl">{fmtNum(p.mean_quality)}</span>
+                  </TableCell>
+                  <TableCell className={`${TD} text-right`}>
+                    <span className={`font-display text-xl ${signTone(p.improvement_index)}`}>{fmtPct(p.improvement_index)}</span>
+                  </TableCell>
+                  <TableCell className={`${TD} hidden md:table-cell`}>
+                    <div className="flex gap-1.5">
+                      {p.flags.length === 0 ? (
+                        <span className="text-muted-foreground">None</span>
+                      ) : (
+                        p.flags.map((f) => (
+                          <StatusPill key={f.kind} tone="madder">
+                            {f.message}
+                          </StatusPill>
+                        ))
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ScrollFade>
       )}
-      <p className="mt-6 max-w-[62ch] text-[0.8125rem] text-muted-foreground">
-        Improvement index is descriptive and relative to each patient&apos;s own baseline. It is not clinically validated.
-      </p>
+      <p className="mt-6 max-w-[62ch] text-[0.8125rem] text-muted-foreground">Improvement index is descriptive and relative to each patient&apos;s own baseline. It is not clinically validated.</p>
     </section>
   );
 }
