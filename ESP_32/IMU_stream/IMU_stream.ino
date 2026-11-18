@@ -12,6 +12,12 @@
 #include <WebSocketsClient.h>  // "WebSockets" by Markus Sattler (Library Manager)
 #include <HX711.h>             // "HX711" by Bogdan Necula (Library Manager)
 #include "secrets.h"           // copy secrets.example.h -> secrets.h
+#ifndef DEVICE_KEY
+#define DEVICE_KEY ""  // older secrets.h without a key: lab-mode server only
+#endif
+#ifndef SERVER_USE_TLS
+#define SERVER_USE_TLS 0
+#endif
 
 #define DEVICE_ID   "imu_01"
 #define BATCH_SIZE  10  // 100 Hz ODR / 10 = 10 frames/s
@@ -139,7 +145,12 @@ void sendBatch(const Batch &b) {
 }
 
 void txTask(void *) {
+  ws.setExtraHeaders("X-Device-Key: " DEVICE_KEY);  // server with a DB rejects /ws/imu without it
+#if SERVER_USE_TLS
+  ws.beginSSL(SERVER_HOST, SERVER_PORT, "/ws/imu");  // no fingerprint/CA given: certificate NOT verified (LAN demo only)
+#else
   ws.begin(SERVER_HOST, SERVER_PORT, "/ws/imu");
+#endif
   ws.onEvent(onWsEvent);
   ws.setReconnectInterval(2000);
   ws.enableHeartbeat(15000, 3000, 2);  // detect dead connection, then reconnect
