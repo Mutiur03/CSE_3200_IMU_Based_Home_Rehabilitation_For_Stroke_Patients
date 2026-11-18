@@ -20,8 +20,9 @@ export default function ProgressPage() {
 
   const { sessions, improvement, assessments } = q.data;
   const finished = sessions.filter((s) => s.ended_at).sort((a, b) => a.started_at.localeCompare(b.started_at));
+  const multiYear = new Set(finished.map((s) => new Date(s.started_at).getFullYear())).size > 1;
   const rows = finished.map((s) => ({
-    x: fmtDay(s.started_at),
+    x: fmtDay(s.started_at, multiYear),
     quality: s.mean_quality,
     roll: s.mean_roll_range_deg,
     pitch: s.mean_pitch_range_deg,
@@ -66,7 +67,7 @@ export default function ProgressPage() {
         ) : (
           <div className="grid gap-12">
             <TrendChart title="Movement quality score" unit="" rows={rows} series={[{ key: "quality", label: "Quality", color: "var(--primary)" }]} />
-            <TrendChart title="Range of movement" unit="°" rows={rows} series={[{ key: "roll", label: "Roll range", color: "var(--primary)" }, { key: "pitch", label: "Pitch range", color: "var(--chart-3)" }]} />
+            <TrendChart title="Range of movement" unit="°" rows={rows} series={[{ key: "roll", label: "Roll range", color: "var(--chart-1)" }, { key: "pitch", label: "Pitch range", color: "var(--chart-3)" }]} />
             <TrendChart title="Time per repetition" unit=" s" rows={rows} series={[{ key: "duration", label: "Duration", color: "var(--primary)" }]} />
           </div>
         )}
