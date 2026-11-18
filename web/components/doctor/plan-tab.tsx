@@ -45,18 +45,18 @@ function PlanForm({ id, plan }: { id: number; plan: Schemas["PlanOut"] | null })
   });
 
   return (
-    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="max-w-2xl space-y-4" noValidate>
-      <h2 className="text-lg font-semibold">Training plan</h2>
-      {!plan && <p className="text-sm text-muted-foreground">No plan set yet. Fill in the form to create one.</p>}
+    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="max-w-2xl space-y-6" noValidate>
+      <h2 className="text-[1.5rem] leading-tight">Training plan</h2>
+      {!plan && <p className="text-sm text-muted-foreground">No plan is set for this patient. Choose the levels they may play and save the plan to create one.</p>}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Levels allowed</legend>
+        <legend className="text-sm font-medium text-foreground">Levels allowed</legend>
         <Controller
           control={control}
           name="levels_allowed"
           render={({ field }) => (
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
               {LEVELS.map((l) => (
-                <div key={l} className="flex items-center gap-2">
+                <div key={l} className="flex min-h-11 items-center gap-2">
                   <Checkbox
                     id={`level-${l}`}
                     aria-label={`Level ${l}`}
@@ -74,12 +74,12 @@ function PlanForm({ id, plan }: { id: number; plan: Schemas["PlanOut"] | null })
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="reps_per_level">Reps per level</Label>
-          <Input id="reps_per_level" type="number" min={1} step={1} aria-invalid={!!errors.reps_per_level} {...register("reps_per_level", { valueAsNumber: true })} />
+          <Input id="reps_per_level" className="h-11 tnum" type="number" min={1} step={1} aria-invalid={!!errors.reps_per_level} {...register("reps_per_level", { valueAsNumber: true })} />
           {errors.reps_per_level && <p className="text-xs text-destructive">{errors.reps_per_level.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="sessions_per_week">Sessions per week</Label>
-          <Input id="sessions_per_week" type="number" min={1} step={1} aria-invalid={!!errors.sessions_per_week} {...register("sessions_per_week", { valueAsNumber: true })} />
+          <Input id="sessions_per_week" className="h-11 tnum" type="number" min={1} step={1} aria-invalid={!!errors.sessions_per_week} {...register("sessions_per_week", { valueAsNumber: true })} />
           {errors.sessions_per_week && <p className="text-xs text-destructive">{errors.sessions_per_week.message}</p>}
         </div>
       </div>
@@ -87,13 +87,13 @@ function PlanForm({ id, plan }: { id: number; plan: Schemas["PlanOut"] | null })
         control={control}
         name="adapt_on"
         render={({ field }) => (
-          <div className="flex items-center gap-2">
+          <div className="flex min-h-11 items-start gap-2.5 pt-3">
             <Checkbox id="adapt_on" aria-label="Adaptive difficulty on" checked={field.value} onCheckedChange={(c) => field.onChange(c === true)} />
             <Label htmlFor="adapt_on">Adaptive difficulty on (level moves up, repeats or down from mean movement quality score)</Label>
           </div>
         )}
       />
-      <Button type="submit" disabled={save.isPending}>
+      <Button type="submit" size="lg" disabled={save.isPending}>
         {save.isPending ? "Saving..." : "Save plan"}
       </Button>
     </form>
@@ -135,24 +135,24 @@ function AlertForm({ id, rule }: { id: number; rule: Schemas["AlertRuleIO"] | nu
   });
 
   return (
-    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="max-w-2xl space-y-4" noValidate>
-      <h2 className="text-lg font-semibold">Alert rules</h2>
+    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="max-w-2xl space-y-6" noValidate>
+      <h2 className="text-[1.5rem] leading-tight">Alert rules</h2>
       <p className="text-sm text-muted-foreground">
         The system ships no default thresholds. A patient is flagged only when you set a rule here; leave a field empty to turn that rule off.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="max_days">Flag after this many days without a session</Label>
-          <Input id="max_days" inputMode="numeric" aria-invalid={!!errors.max_days_without_session} {...register("max_days_without_session")} />
+          <Input id="max_days" className="h-11" inputMode="numeric" aria-invalid={!!errors.max_days_without_session} {...register("max_days_without_session")} />
           {errors.max_days_without_session && <p className="text-xs text-destructive">{errors.max_days_without_session.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="drop_pct">Flag when quality drops by this percent</Label>
-          <Input id="drop_pct" inputMode="decimal" aria-invalid={!!errors.quality_drop_pct} {...register("quality_drop_pct")} />
+          <Input id="drop_pct" className="h-11" inputMode="decimal" aria-invalid={!!errors.quality_drop_pct} {...register("quality_drop_pct")} />
           {errors.quality_drop_pct && <p className="text-xs text-destructive">{errors.quality_drop_pct.message}</p>}
         </div>
       </div>
-      <Button type="submit" disabled={save.isPending}>
+      <Button type="submit" size="lg" disabled={save.isPending}>
         {save.isPending ? "Saving..." : "Save alert rules"}
       </Button>
     </form>
@@ -161,7 +161,7 @@ function AlertForm({ id, rule }: { id: number; rule: Schemas["AlertRuleIO"] | nu
 
 export function PlanTab({ id, plan, rule }: { id: number; plan: Schemas["PlanOut"] | null; rule: Schemas["AlertRuleIO"] | null }) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-14">
       <PlanForm id={id} plan={plan} />
       <AlertForm id={id} rule={rule} />
     </div>

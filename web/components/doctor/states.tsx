@@ -5,7 +5,7 @@ export function Loading({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-2" role="status" aria-label="Loading">
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-9 w-full" />
+        <Skeleton key={i} className="h-11 w-full" />
       ))}
     </div>
   );
@@ -13,11 +13,11 @@ export function Loading({ rows = 4 }: { rows?: number }) {
 
 export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-      <span>{error instanceof Error ? error.message : "Something went wrong."}</span>
+    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 px-4 py-3 text-sm text-destructive">
+      <span>{error instanceof Error ? error.message : "Something went wrong. Check your connection and try again."}</span>
       {retry && (
         <Button size="sm" variant="outline" onClick={retry}>
-          Retry
+          Try again
         </Button>
       )}
     </div>
@@ -25,5 +25,5 @@ export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void 
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{children}</p>;
+  return <p className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">{children}</p>;
 }
