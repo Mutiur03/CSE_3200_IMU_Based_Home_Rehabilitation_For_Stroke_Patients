@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ErrorNote, Loading } from "@/components/app-shell";
 import { TrendChart } from "@/components/patient/trend-chart";
 import { fmtDay, num } from "@/components/patient/util";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { Stat } from "@/components/stat";
 import { api, unwrap } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 
@@ -28,48 +29,63 @@ export default function ProgressPage() {
   }));
 
   return (
-    <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">My progress</h1>
+    <div>
+      <PageHeader title="My progress" />
 
-      {rows.length === 0 ? (
-        <p className="text-muted-foreground">No finished sessions yet. Your charts will appear after your first session.</p>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2">
-          <TrendChart title="Movement quality score" unit="" rows={rows} series={[{ key: "quality", label: "Quality", color: "var(--primary)" }]} />
-          <TrendChart title="Range of movement" unit="°" rows={rows} series={[{ key: "roll", label: "Roll range", color: "var(--primary)" }, { key: "pitch", label: "Pitch range", color: "var(--chart-2)" }]} />
-          <TrendChart title="Time per repetition" unit=" s" rows={rows} series={[{ key: "duration", label: "Duration", color: "var(--chart-2)" }]} />
-        </div>
-      )}
-
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Improvement index</CardTitle></CardHeader>
-        <CardContent className="grid gap-3 text-base">
-          <p className="text-3xl font-semibold">{improvement.index == null ? "Not enough sessions yet" : `${num(improvement.index, 1)} %`}</p>
+      <section aria-labelledby="imp-h" className="grid gap-8 md:grid-cols-[auto_1fr] md:gap-16">
+        {improvement.index == null ? (
+          <div>
+            <h2 id="imp-h" className="text-[1.75rem] leading-tight">Improvement index</h2>
+            <p className="mt-3 text-muted-foreground">Not enough sessions yet. Finish a few sessions and it will appear here.</p>
+          </div>
+        ) : (
+          <div>
+            <h2 id="imp-h" className="sr-only">Improvement index</h2>
+            <Stat label="Improvement index" value={`${num(improvement.index, 1)} %`} tone="brass" size="lg" />
+          </div>
+        )}
+        <div>
           {improvement.metrics.length > 0 && (
-            <ul className="grid gap-1">
+            <ul className="grid gap-2 border-t border-border pt-4 md:border-t-0 md:pt-0">
               {improvement.metrics.map((m) => (
-                <li key={m.name}>{m.name.replace("_", " ")}: {num(m.baseline, 1)} to {num(m.current, 1)} ({m.improvement_pct >= 0 ? "+" : ""}{num(m.improvement_pct, 1)} %)</li>
+                <li key={m.name} className="flex flex-wrap justify-between gap-x-6">
+                  <span className="first-letter:uppercase">{m.name.replace("_", " ")}</span>
+                  <span className="tnum text-muted-foreground">{num(m.baseline, 1)} to {num(m.current, 1)} ({m.improvement_pct >= 0 ? "+" : ""}{num(m.improvement_pct, 1)} %)</span>
+                </li>
               ))}
             </ul>
           )}
-          <p className="text-sm text-muted-foreground">{improvement.note}</p>
-        </CardContent>
-      </Card>
+          <p className="mt-4 text-base text-muted-foreground">{improvement.note}</p>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">My doctor&apos;s marks</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 text-base">
-          {assessments.length === 0 && <p className="text-muted-foreground">Your doctor has not marked a session yet.</p>}
+      <section aria-labelledby="charts-h" className="mt-14 border-t border-border pt-10">
+        <h2 id="charts-h" className="mb-6 text-[1.75rem] leading-tight">Session by session</h2>
+        {rows.length === 0 ? (
+          <p className="text-muted-foreground">No finished sessions yet. Your charts will appear after your first session.</p>
+        ) : (
+          <div className="grid gap-12">
+            <TrendChart title="Movement quality score" unit="" rows={rows} series={[{ key: "quality", label: "Quality", color: "var(--primary)" }]} />
+            <TrendChart title="Range of movement" unit="°" rows={rows} series={[{ key: "roll", label: "Roll range", color: "var(--primary)" }, { key: "pitch", label: "Pitch range", color: "var(--chart-3)" }]} />
+            <TrendChart title="Time per repetition" unit=" s" rows={rows} series={[{ key: "duration", label: "Duration", color: "var(--primary)" }]} />
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="marks-h" className="mt-14 border-t border-border pt-10">
+        <h2 id="marks-h" className="mb-6 text-[1.75rem] leading-tight">My doctor&apos;s marks</h2>
+        {assessments.length === 0 && <p className="text-muted-foreground">Your doctor has not marked a session yet.</p>}
+        <div className="grid gap-0">
           {assessments.map((a) => (
-            <div key={a.id} className="grid gap-1 border-b pb-3 last:border-0">
+            <div key={a.id} className="grid gap-1 border-b border-border py-5 first:pt-0 last:border-0">
               <p className="font-medium">{new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(new Date(a.assessed_on + "T00:00"))}</p>
               <p>Range {a.rubric.range}, smoothness {a.rubric.smoothness}, control {a.rubric.control}, adherence {a.rubric.adherence}, overall {a.rubric.overall} (each 1 to 5)</p>
               {a.scale_name && <p>{a.scale_name}: {a.scale_score ?? "-"}</p>}
               {a.comment && <p className="text-muted-foreground">{a.comment}</p>}
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }
