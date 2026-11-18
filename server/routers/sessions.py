@@ -38,7 +38,7 @@ def end(user: UserOut = Depends(require_role("patient")), s: Session = Depends(g
         raise HTTPException(409, "no open session")
     n, q, *means = s.execute(select(func.count(m.Rep.id), func.avg(m.Rep.quality), *_MEANS).where(m.Rep.session_id == sess.id)).one()
     dev = ingest.devices.get(sess.device_id)
-    st = dev.stats() if dev and dev.connected else {}
+    st = dev.stats() if dev else {}  # stats persist after the wristband disconnects
     sess.ended_at = datetime.now(timezone.utc)
     sess.n_reps, sess.mean_quality = n, q
     sess.dropped_packets, sess.sample_rate_hz = st.get("dropped_packets"), st.get("sample_rate_hz")
