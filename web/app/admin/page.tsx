@@ -1,5 +1,5 @@
 "use client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ErrorNote, Loading } from "@/components/app-shell";
 import { NativeSelect } from "@/components/admin/fields";
@@ -22,8 +22,22 @@ export default function AdminPage() {
     },
     onSuccess: () => toast.success("Doctor assigned"),
     onError: (e) => toast.error(e.message),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-patient"] });
+    },
   });
+
+  // UserOut has no doctor_id, so read each patient's detail. A failed read leaves the select on "Choose doctor...".
+  const patientIds = (users.data ?? []).filter((u) => u.role === "patient").map((u) => u.id);
+  const details = useQueries({
+    queries: patientIds.map((id) => ({
+      queryKey: ["admin-patient", id],
+      retry: false,
+      queryFn: () => unwrap(api.GET("/api/patients/{patient_id}", { params: { path: { patient_id: id } } })),
+    })),
+  });
+  const doctorOf = new Map(patientIds.map((id, i) => [id, details[i]?.data?.doctor_id ?? null]));
 
   const err = users.error ?? devices.error;
   if (err) return <ErrorNote error={err} retry={() => { users.refetch(); devices.refetch(); }} />;
@@ -60,7 +74,8 @@ export default function AdminPage() {
                         <NativeSelect
                           aria-label={`Doctor for ${u.name}`}
                           className="w-44"
-                          defaultValue=""
+                          key={`${u.id}-${doctorOf.get(u.id) ?? ""}`}
+                          defaultValue={doctorOf.get(u.id) ?? ""}
                           disabled={assign.isPending || doctors.length === 0}
                           onChange={(e) => e.target.value && assign.mutate({ patient_id: u.id, doctor_id: Number(e.target.value) })}
                         >

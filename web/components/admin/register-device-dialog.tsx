@@ -48,12 +48,12 @@ export function RegisterDeviceDialog({ patients }: { patients: User[] }) {
       <Button onClick={() => setOpen(true)}>Register device</Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="gap-5 p-6">
           <DialogHeader>
-            <DialogTitle>Register device</DialogTitle>
+            <DialogTitle className="font-display text-2xl">Register device</DialogTitle>
             <DialogDescription>Creates the wristband&apos;s id and a secret key.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="grid gap-3" noValidate>
+          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="grid gap-4" noValidate>
             <div className="grid gap-1.5">
               <Label htmlFor="rd-id">Device id</Label>
               <Input id="rd-id" autoComplete="off" placeholder="imu_01" aria-invalid={!!errors.device_id} aria-describedby="rd-id-err" {...register("device_id")} />
@@ -67,23 +67,23 @@ export function RegisterDeviceDialog({ patients }: { patients: User[] }) {
               </NativeSelect>
             </div>
             {errors.root && <p role="alert" className="text-sm text-destructive">{errors.root.message}</p>}
-            <Button type="submit" disabled={create.isPending}>{create.isPending ? "Registering..." : "Register device"}</Button>
+            <div className="flex justify-end"><Button type="submit" disabled={create.isPending}>{create.isPending ? "Registering..." : "Register device"}</Button></div>
           </form>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!issued} onOpenChange={(o) => !o && setIssued(null)}>
-        <DialogContent>
+        <DialogContent className="gap-5 p-6">
           <DialogHeader>
-            <DialogTitle>Device key for {issued?.device_id}</DialogTitle>
+            <DialogTitle className="font-display text-2xl">Device key for {issued?.device_id}</DialogTitle>
             <DialogDescription>
               Copy it now. It cannot be shown again. Put it in the firmware <code>secrets.h</code> as <code>DEVICE_KEY</code>.
             </DialogDescription>
           </DialogHeader>
-          <code className="block break-all rounded-lg border bg-muted p-3 font-mono text-sm select-all">{issued?.device_key}</code>
-          <div className="flex gap-2">
-            <Button onClick={() => issued && copy(issued.device_key)}>Copy key</Button>
-            <Button variant="outline" onClick={() => setIssued(null)}>I have saved it</Button>
+          <code className="block break-all rounded-lg border border-border bg-muted/50 p-4 font-mono text-sm select-all">{issued?.device_key}</code>
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button variant="outline" onClick={() => issued && copy(issued.device_key)}>Copy key</Button>
+            <Button onClick={() => setIssued(null)}>I have saved it</Button>
           </div>
         </DialogContent>
       </Dialog>
