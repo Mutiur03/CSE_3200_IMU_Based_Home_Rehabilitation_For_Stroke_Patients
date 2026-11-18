@@ -126,7 +126,7 @@ class AssessmentIn(BaseModel):
     assessed_on: date
     rubric: Rubric
     scale_name: str | None = Field(default=None, max_length=60)  # e.g. FMA-UE, ARAT (doctor-administered, only stored)
-    scale_score: float | None = None
+    scale_score: float | None = Field(default=None, allow_inf_nan=False)
     comment: str | None = Field(default=None, max_length=4000)
 
 

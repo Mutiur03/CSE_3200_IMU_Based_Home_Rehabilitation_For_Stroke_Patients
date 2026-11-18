@@ -2,7 +2,9 @@
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.exc import DataError
 from fastapi.staticfiles import StaticFiles
 
 import ingest
@@ -12,6 +14,20 @@ app = FastAPI(title="IMU Rehab Platform")
 app.include_router(ingest.router)
 for r in ROUTERS:
     app.include_router(r)
+
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_body(_, exc):
+    """Default handler echoes the offending input, which is a 500 when it is Infinity/NaN; leave the input out."""
+    return JSONResponse({"detail": [{k: v for k, v in e.items() if k not in ("input", "ctx")} for e in exc.errors()]}, status_code=422)
+
+
+@app.exception_handler(DataError)
+async def bad_data(_, __):
+    """Values Postgres refuses (NUL bytes in text, integers out of range) are the client's fault, not a 500."""
+    return JSONResponse({"detail": "invalid value"}, status_code=422)
+
 
 _dash = Path(__file__).parent / "dashboard.html"
 
