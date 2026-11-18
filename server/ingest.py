@@ -4,6 +4,7 @@ ESP32 --(WS /ws/imu or POST /api/imu)--> validate --> raw JSONL log + live broad
                                                   --> tilt (orientation.py) --> UDP to Godot game
 Raw data is never modified.
 """
+import hashlib
 import json
 import math
 import os
@@ -13,11 +14,17 @@ from collections import deque
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+import bindings
+import db
+import models as m
 from features import ENTER_DEG, EXIT_DEG, WristReps, diff, pick, window_features
 from orientation import Tilt
 from quality import N_LEVELS, Q_DOWN, Q_UP, level_quality, next_level, score
+from security import user_from_token, verify_secret
+from settings import get_settings
 
 # Sensor full-scale from firmware config (ESP_32/IMU_test: ACCEL_CONFIG0=0x08, GYRO_CONFIG0=0x08).
 # Change these if firmware FS changes. These are sensor limits, not clinical thresholds.
@@ -193,28 +200,72 @@ class Device:
 devices: dict[str, Device] = {}
 invalid_packets = 0
 live_clients: set[WebSocket] = set()
-game_clients: set[WebSocket] = set()  # web build of the game (browsers can't receive UDP)
+game_clients: dict[WebSocket, str | None] = {}  # web build of the game (browsers can't receive UDP) -> its patient's device (None = lab: all)
 router = APIRouter()
+_verified: set[tuple[str, str]] = set()  # (device_id, sha256(key)) already checked against devices.key_hash; skips argon2 per batch
 
 
-async def ingest(raw: str | bytes, via_ws: bool = False) -> Batch:
+class Unauthorized(Exception):
+    pass
+
+
+def device_key_ok(device_id: str, key: str | None) -> bool:
+    """Platform mode (DB configured): X-Device-Key must match the registered hash. Lab mode: always ok."""
+    if db.SessionLocal is None:
+        return True
+    if not key:
+        return False
+    tag = (device_id, hashlib.sha256(key.encode()).hexdigest())
+    if tag in _verified:
+        return True
+    with db.SessionLocal() as s:
+        kh = s.scalar(select(m.Device.key_hash).where(m.Device.id == device_id))
+    try:
+        ok = bool(kh) and verify_secret(key, kh)
+    except Exception:
+        ok = False
+    if ok:
+        _verified.add(tag)
+    return ok
+
+
+def _cookie_user(conn):
+    return user_from_token(conn.cookies.get(get_settings().cookie_name))
+
+
+def map_level(target: int, level: int, allowed: list[int]) -> int:
+    """Fit the policy's next level into the doctor's allowed levels: going up -> nearest allowed >= target, else the lowest
+    allowed (wrap); going down -> nearest allowed <= target, else the lowest."""
+    allowed = sorted(allowed)
+    if not allowed or target in allowed:
+        return target
+    if target >= level or (level == N_LEVELS and target == 1):
+        return next((a for a in allowed if a >= target), allowed[0])
+    return next((a for a in reversed(allowed) if a <= target), allowed[0])
+
+
+async def ingest(raw: str | bytes, via_ws: bool = False, key: str | None = None) -> Batch:
     global invalid_packets
     try:
         batch = Batch.model_validate_json(raw)
     except ValidationError:
         invalid_packets += 1
         raise
+    if not device_key_ok(batch.device_id, key):
+        raise Unauthorized
     received_ms = int(time.time() * 1000)
     dev = devices.get(batch.device_id) or devices.setdefault(batch.device_id, Device(batch.device_id))
     dev.update(batch, received_ms)
     dev.connected = dev.connected or via_ws
     dev.log.write(json.dumps({"server_time_ms": received_ms, **batch.model_dump()}) + "\n")
     game_msg = json.dumps(send_to_game(dev))
-    for ws in list(game_clients):
+    for ws, did in list(game_clients.items()):
+        if did is not None and did != batch.device_id:
+            continue
         try:
             await ws.send_text(game_msg)
         except Exception:
-            game_clients.discard(ws)
+            game_clients.pop(ws, None)
 
     msg = json.dumps({"device_id": batch.device_id, "samples": batch.model_dump()["samples"], "stats": dev.stats()})
     # ponytail: sequential sends; a stalled viewer delays ingestion. Move to per-client queues if that bites.
@@ -247,10 +298,14 @@ async def imu_stream(ws: WebSocket):
     try:
         while True:
             try:
-                batch = await ingest(await ws.receive_text(), via_ws=True)
+                batch = await ingest(await ws.receive_text(), via_ws=True, key=ws.headers.get("x-device-key"))
             except ValidationError as e:
                 await ws.send_json({"error": e.errors(include_url=False, include_context=False)})
                 continue
+            except Unauthorized:
+                await ws.send_json({"error": "unauthorized"})
+                await ws.close(1008)
+                return
             dev = devices[batch.device_id]
             dev.ws = ws
     except WebSocketDisconnect:
@@ -265,9 +320,11 @@ async def imu_stream(ws: WebSocket):
 @router.post("/api/imu")
 async def imu_post(request: Request):
     try:
-        batch = await ingest(await request.body())
+        batch = await ingest(await request.body(), key=request.headers.get("x-device-key"))
     except ValidationError as e:
         raise HTTPException(422, e.errors(include_url=False, include_context=False))
+    except Unauthorized:
+        raise HTTPException(401, "unauthorized")
     return {"ok": True, "samples": len(batch.samples)}
 
 
@@ -280,9 +337,25 @@ class GameEvent(BaseModel):
     duration_s: float = Field(gt=0, le=600)  # game-measured rep duration; window = the last duration_s before this event
 
 
+_REP_COLS = ("level", "task", "rep", "duration_s", "pitch_range_deg", "roll_range_deg", "peak_speed_dps", "speed_peaks", "quality",
+             "timing_score", "smoothness_score", "level_quality", "next_level")
+
+
 @router.post("/api/game_event")
-async def game_event(ev: GameEvent):
-    """The game finished a rep. Pair it with the sensor features over that rep's time window."""
+async def game_event(ev: GameEvent, request: Request):
+    """The game finished a rep. Pair it with the sensor features over that rep's time window.
+    With a patient login cookie (platform mode) the rep is also stored in the patient's open session and the plan applies."""
+    user = _cookie_user(request) if db.SessionLocal is not None else None
+    patient = user if user and user.role == "patient" else None
+    plan = None
+    if patient:
+        with db.SessionLocal() as s:
+            did = bindings.device_of(s, patient.id)
+            plan = s.get(m.Plan, patient.id)
+        if did is None:
+            raise HTTPException(409, "no device bound to this patient")
+        ev.device_id = did
+    adapt = plan.adapt_on if plan else ADAPT
     dev = devices.get(ev.device_id)
     if dev is None:
         raise HTTPException(404, "unknown device")
@@ -305,12 +378,19 @@ async def game_event(ev: GameEvent):
     rep["level_quality"] = level_quality(dev.run)
     rep["next_level"] = None  # only decided when the level's last rep is done
     if ev.rep >= ev.reps_required:
-        rep["next_level"] = next_level(ev.level, rep["level_quality"]) if ADAPT else ev.level % N_LEVELS + 1
+        rep["next_level"] = next_level(ev.level, rep["level_quality"]) if adapt else ev.level % N_LEVELS + 1
+        if plan:
+            rep["next_level"] = map_level(rep["next_level"], ev.level, plan.levels_allowed)
         # What the game needs to explain the decision to the player:
         rep["scored_reps"] = sum(1 for r in dev.run if r["quality"] is not None)
-        rep["q_up"], rep["q_down"], rep["adapt"] = Q_UP, Q_DOWN, ADAPT
+        rep["q_up"], rep["q_down"], rep["adapt"] = Q_UP, Q_DOWN, adapt
     dev.game_reps.append(rep)
     dev.game_log.write(json.dumps({"server_time_ms": now, **rep}) + "\n")
+    if patient:
+        with db.SessionLocal() as s:
+            sess = bindings.ensure_session(s, patient.id, ev.device_id, str(dev.path))
+            s.add(m.Rep(session_id=sess.id, **{k: rep[k] for k in _REP_COLS}))
+            s.commit()
     await buzz(dev)
     return {"ok": True, **rep}
 
@@ -447,9 +527,20 @@ async def live(ws: WebSocket):
 @router.websocket("/ws/game")
 async def game_feed(ws: WebSocket):
     await ws.accept()
-    game_clients.add(ws)
+    did = None
+    if db.SessionLocal is not None:  # platform mode: a patient only gets their own device's stream
+        user = _cookie_user(ws)
+        if user is None or user.role != "patient":
+            await ws.close(1008)
+            return
+        with db.SessionLocal() as s:
+            did = bindings.device_of(s, user.id)
+        if did is None:
+            await ws.close(1008)
+            return
+    game_clients[ws] = did
     try:
         while True:
             await ws.receive_text()
     except WebSocketDisconnect:
-        game_clients.discard(ws)
+        game_clients.pop(ws, None)
