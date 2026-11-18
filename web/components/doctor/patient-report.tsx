@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/brand";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtDate, fmtDateTime, fmtNum, fmtPct, metricLabel } from "./format";
+import { spansYears, fmtDate, fmtDateTime, fmtNum, fmtPct, metricLabel } from "./format";
 import { usePatient, useProgress } from "./queries";
 import { ErrorBox, Loading } from "./states";
 import { TrendCharts } from "./trend-charts";
@@ -43,12 +43,16 @@ export function PatientReport({ id }: { id: number }) {
   const imp = g.data.improvement;
   const sessions = [...g.data.sessions].sort((a, b) => a.started_at.localeCompare(b.started_at));
   const marks = [...g.data.assessments].sort((a, b) => b.assessed_on.localeCompare(a.assessed_on));
-  const period = sessions.length ? `${fmtDate(sessions[0].started_at)} to ${fmtDate(sessions[sessions.length - 1].started_at)}` : "no sessions";
+  const yr = spansYears([...sessions.map((x) => x.started_at), ...marks.map((m) => m.assessed_on)]);
+  const period = sessions.length ? `${fmtDate(sessions[0].started_at, yr)} to ${fmtDate(sessions[sessions.length - 1].started_at, yr)}` : "no sessions";
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href={`/doctor/patients/${id}`} className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+        <Link
+          href={`/doctor/patients/${id}`}
+          className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
           Back to patient
         </Link>
         <div className="flex gap-2">
@@ -73,7 +77,7 @@ export function PatientReport({ id }: { id: number }) {
             <Fact label="Device" value={d.device_id ?? "none"} />
             <Fact label="Email" value={<span className="break-all">{d.email}</span>} />
             <Fact label="Affected side" value={d.affected_side ?? "not recorded"} />
-            <Fact label="Onset" value={d.onset_date ? fmtDate(d.onset_date) : "not recorded"} />
+            <Fact label="Onset" value={d.onset_date ? fmtDate(d.onset_date, true) : "not recorded"} />
           </dl>
         </header>
 
@@ -170,7 +174,7 @@ export function PatientReport({ id }: { id: number }) {
               <TableBody>
                 {marks.map((a) => (
                   <TableRow key={a.id} className={rowCls}>
-                    <TableCell className={td}>{fmtDate(a.assessed_on)}</TableCell>
+                    <TableCell className={td}>{fmtDate(a.assessed_on, yr)}</TableCell>
                     <TableCell className={tdr}>{a.rubric.range}</TableCell>
                     <TableCell className={tdr}>{a.rubric.smoothness}</TableCell>
                     <TableCell className={tdr}>{a.rubric.control}</TableCell>
@@ -188,7 +192,8 @@ export function PatientReport({ id }: { id: number }) {
         <Section title="Plan">
           {d.plan ? (
             <p>
-              Levels allowed: {[...d.plan.levels_allowed].sort((a, b) => a - b).join(", ")}. {d.plan.reps_per_level} reps per level, {d.plan.sessions_per_week} sessions per week, adaptive difficulty {d.plan.adapt_on ? "on" : "off"}.
+              Levels allowed: {[...d.plan.levels_allowed].sort((a, b) => a - b).join(", ")}. {d.plan.reps_per_level} reps per level, {d.plan.sessions_per_week} sessions per week, adaptive difficulty{" "}
+              {d.plan.adapt_on ? "on" : "off"}.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">No plan set.</p>

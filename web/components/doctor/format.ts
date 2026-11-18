@@ -1,7 +1,20 @@
-const dateF = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
-const dateTimeF = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const dateF = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const dateYF = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+const dateTimeF = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
-export const fmtDate = (s?: string | null) => (s ? dateF.format(new Date(s)) : "n/a");
+/** Short date ("Oct 7"); pass year=true when the data spans more than one year. */
+export const fmtDate = (s?: string | null, year = false) => (s ? (year ? dateYF : dateF).format(new Date(s)) : "n/a");
+export const spansYears = (dates: (string | number)[]) => new Set(dates.map((d) => new Date(d).getFullYear())).size > 1;
 export const fmtDateTime = (s?: string | null) => (s ? dateTimeF.format(new Date(s)) : "n/a");
 export const fmtNum = (n?: number | null, d = 1) => (n == null ? "n/a" : n.toFixed(d));
 export const fmtPct = (n?: number | null) => (n == null ? "n/a" : `${n > 0 ? "+" : ""}${n.toFixed(1)}%`);

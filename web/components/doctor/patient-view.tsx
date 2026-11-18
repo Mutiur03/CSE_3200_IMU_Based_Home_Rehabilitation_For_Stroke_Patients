@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AssessmentTable } from "./assessment-table";
+import { ScrollFade } from "./scroll-fade";
 import { TD, TH, fmtDate, fmtDateTime, fmtNum } from "./format";
 import { ImprovementCard } from "./improvement";
 import { MarkingTab } from "./marking-tab";
@@ -44,38 +45,41 @@ function Sessions({ id }: { id: number }) {
   if (q.isError) return <ErrorBox error={q.error} retry={() => q.refetch()} />;
   if (q.data.length === 0) return <Empty>No sessions recorded yet. They appear here once the patient finishes a game session.</Empty>;
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className={TH}>Date</TableHead>
-          <TableHead className={`${TH} text-right`}>Reps</TableHead>
-          <TableHead className={`${TH} text-right`}>Mean quality</TableHead>
-          <TableHead className={`${TH} text-right`}>Dropped packets</TableHead>
-          <TableHead className={`${TH} text-right`}>Sample rate (Hz)</TableHead>
-          <TableHead className={TH}>
-            <span className="sr-only">Detail</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {[...q.data]
-          .sort((a, b) => b.started_at.localeCompare(a.started_at))
-          .map((s) => (
-            <TableRow key={s.id}>
-              <TableCell className={TD}>{fmtDateTime(s.started_at)}</TableCell>
-              <TableCell className={`${TD} text-right`}>{s.n_reps ?? "n/a"}</TableCell>
-              <TableCell className={`${TD} text-right`}>{fmtNum(s.mean_quality)}</TableCell>
-              <TableCell className={`${TD} text-right`}>{s.dropped_packets ?? "n/a"}</TableCell>
-              <TableCell className={`${TD} text-right`}>{fmtNum(s.sample_rate_hz)}</TableCell>
-              <TableCell className={TD}>
-                <Link href={`/doctor/sessions/${s.id}`} className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
-                  Reps and replay<span className="sr-only"> for {fmtDateTime(s.started_at)}</span>
-                </Link>
-              </TableCell>
-            </TableRow>
-          ))}
-      </TableBody>
-    </Table>
+    <ScrollFade>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className={TH}>Date</TableHead>
+            <TableHead className={`${TH} text-right`}>Reps</TableHead>
+            <TableHead className={`${TH} text-right`}>Mean quality</TableHead>
+            <TableHead className={`${TH} text-right`}>Dropped packets</TableHead>
+            <TableHead className={`${TH} text-right`}>Sample rate (Hz)</TableHead>
+            <TableHead className={TH}>
+              <span className="sr-only">Detail</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[...q.data]
+            .sort((a, b) => b.started_at.localeCompare(a.started_at))
+            .map((s) => (
+              <TableRow key={s.id}>
+                <TableCell className={TD}>{fmtDateTime(s.started_at)}</TableCell>
+                <TableCell className={`${TD} text-right`}>{s.n_reps ?? "n/a"}</TableCell>
+                <TableCell className={`${TD} text-right`}>{fmtNum(s.mean_quality)}</TableCell>
+                <TableCell className={`${TD} text-right`}>{s.dropped_packets ?? "n/a"}</TableCell>
+                <TableCell className={`${TD} text-right`}>{fmtNum(s.sample_rate_hz)}</TableCell>
+                <TableCell className={TD}>
+                  <Link href={`/doctor/sessions/${s.id}`} className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
+                    Reps and replay
+                    <span className="sr-only"> for {fmtDateTime(s.started_at)}</span>
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
+        </TableBody>
+      </Table>
+    </ScrollFade>
   );
 }
 
@@ -89,14 +93,17 @@ export function PatientView({ id }: { id: number }) {
     ["Email", d.email],
     ["Device", d.device_id ?? "None"],
     ["Affected side", d.affected_side ?? "Not recorded"],
-    ["Onset", d.onset_date ? fmtDate(d.onset_date) : "Not recorded"],
+    ["Onset", d.onset_date ? fmtDate(d.onset_date, true) : "Not recorded"],
     ["Sessions", String(d.sessions_total)],
     ["Mean movement quality score", fmtNum(d.mean_quality)],
     ["Last session", fmtDateTime(d.last_session_at)],
   ];
   return (
     <div>
-      <Link href="/doctor" className="-ml-1 mb-4 inline-flex min-h-11 items-center rounded px-1 text-sm text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring">
+      <Link
+        href="/doctor"
+        className="-ml-1 mb-4 inline-flex min-h-11 items-center rounded px-1 text-sm text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      >
         Back to patients
       </Link>
       <PageHeader
@@ -134,13 +141,15 @@ export function PatientView({ id }: { id: number }) {
       </dl>
 
       <Tabs defaultValue="overview">
-        <TabsList variant="line" className="mb-8 h-11 w-full justify-start gap-6 overflow-x-auto border-b border-border p-0">
-          {["overview", "sessions", "marking", "plan", "messages"].map((t) => (
-            <TabsTrigger key={t} value={t} className="h-11 flex-none px-0.5 text-[0.95rem] capitalize after:bottom-[-1px] after:bg-primary">
-              {t}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <ScrollFade>
+          <TabsList variant="line" className="mb-8 h-11 w-full justify-start gap-6 overflow-x-auto border-b border-border p-0">
+            {["overview", "sessions", "marking", "plan", "messages"].map((t) => (
+              <TabsTrigger key={t} value={t} className="h-11 flex-none px-0.5 text-[0.95rem] capitalize after:bottom-[-1px] after:bg-primary">
+                {t}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </ScrollFade>
         <TabsContent value="overview">
           <Overview id={id} />
         </TabsContent>

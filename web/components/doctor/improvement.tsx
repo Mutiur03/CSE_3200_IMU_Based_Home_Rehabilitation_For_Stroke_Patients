@@ -1,6 +1,7 @@
 import type { Schemas } from "@/lib/api";
 import { Stat } from "@/components/stat";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollFade } from "./scroll-fade";
 import { TD, TH, fmtNum, fmtPct, metricLabel, signTone } from "./format";
 
 export function ImprovementCard({ imp }: { imp: Schemas["Improvement"] }) {
@@ -19,14 +20,17 @@ export function ImprovementCard({ imp }: { imp: Schemas["Improvement"] }) {
       {imp.metrics.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">Not enough sessions yet to compare a baseline with a current window.</p>
       ) : (
-        <div className="mt-8">
+        <ScrollFade className="mt-8">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className={TH}>Metric</TableHead>
                 <TableHead className={`${TH} text-right`}>Baseline</TableHead>
                 <TableHead className={`${TH} text-right`}>Current</TableHead>
-                <TableHead className={`${TH} text-right`}>Change (positive = better)</TableHead>
+                <TableHead className={`${TH} text-right`}>
+                  <span className="sm:hidden">Change</span>
+                  <span className="hidden sm:inline">Change (positive = better)</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -40,7 +44,7 @@ export function ImprovementCard({ imp }: { imp: Schemas["Improvement"] }) {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </ScrollFade>
       )}
     </section>
   );
