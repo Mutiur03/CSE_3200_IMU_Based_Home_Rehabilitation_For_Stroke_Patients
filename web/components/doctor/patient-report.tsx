@@ -1,13 +1,37 @@
 "use client";
 import Link from "next/link";
+import { Wordmark } from "@/components/brand";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AssessmentTable } from "./assessment-table";
-import { fmtDate, fmtDateTime, fmtNum } from "./format";
-import { ImprovementCard } from "./improvement";
+import { fmtDate, fmtDateTime, fmtNum, fmtPct, metricLabel } from "./format";
 import { usePatient, useProgress } from "./queries";
 import { ErrorBox, Loading } from "./states";
 import { TrendCharts } from "./trend-charts";
+
+// Printed-document table styles: 32px rows, hairline rules, tabular numerals.
+const th = "h-8 px-2 text-[0.8125rem] font-medium text-muted-foreground print:text-neutral-600";
+const thr = `${th} text-right`;
+const td = "h-8 px-2 py-0 tnum";
+const tdr = `${td} text-right`;
+const rowCls = "hover:bg-transparent print:break-inside-avoid";
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="border-t border-border pt-5 print:break-inside-avoid-page">
+      <h2 className="mb-4 text-xl">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[0.8125rem] text-muted-foreground print:text-neutral-600">{label}</dt>
+      <dd className="mt-0.5">{value}</dd>
+    </div>
+  );
+}
 
 export function PatientReport({ id }: { id: number }) {
   const p = usePatient(id);
@@ -16,13 +40,15 @@ export function PatientReport({ id }: { id: number }) {
   if (p.isError) return <ErrorBox error={p.error} retry={() => p.refetch()} />;
   if (g.isError) return <ErrorBox error={g.error} retry={() => g.refetch()} />;
   const d = p.data;
+  const imp = g.data.improvement;
   const sessions = [...g.data.sessions].sort((a, b) => a.started_at.localeCompare(b.started_at));
+  const marks = [...g.data.assessments].sort((a, b) => b.assessed_on.localeCompare(a.assessed_on));
   const period = sessions.length ? `${fmtDate(sessions[0].started_at)} to ${fmtDate(sessions[sessions.length - 1].started_at)}` : "no sessions";
 
   return (
-    <article className="space-y-6 print:space-y-4 print:text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Link href={`/doctor/patients/${id}`} className="text-sm text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <Link href={`/doctor/patients/${id}`} className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           Back to patient
         </Link>
         <div className="flex gap-2">
@@ -33,77 +59,146 @@ export function PatientReport({ id }: { id: number }) {
         </div>
       </div>
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Rehabilitation progress report</h1>
-        <p className="text-lg">{d.name}</p>
-        <p className="text-sm text-muted-foreground">
-          {d.email} - Device: {d.device_id ?? "none"} - Affected side: {d.affected_side ?? "not recorded"} - Onset: {d.onset_date ? fmtDate(d.onset_date) : "not recorded"}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Period: {period} - {d.sessions_total} sessions - mean movement quality score {fmtNum(d.mean_quality)}
-        </p>
-      </header>
+      <article className="space-y-8 rounded-xl border border-border bg-card px-6 py-8 text-[0.9375rem] sm:px-12 sm:py-12 print:space-y-6 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-[10pt] print:text-black">
+        <header>
+          <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+            <Wordmark />
+            <p className="text-[0.8125rem] text-muted-foreground print:text-neutral-600">Rehabilitation progress report</p>
+          </div>
+          <h1 className="mt-8 text-[2.25rem] leading-[1.1] sm:text-[2.75rem] print:text-[26pt]">{d.name}</h1>
+          <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
+            <Fact label="Period" value={period} />
+            <Fact label="Sessions" value={<span className="tnum">{d.sessions_total}</span>} />
+            <Fact label="Mean movement quality score" value={<span className="tnum">{fmtNum(d.mean_quality)}</span>} />
+            <Fact label="Device" value={d.device_id ?? "none"} />
+            <Fact label="Email" value={<span className="break-all">{d.email}</span>} />
+            <Fact label="Affected side" value={d.affected_side ?? "not recorded"} />
+            <Fact label="Onset" value={d.onset_date ? fmtDate(d.onset_date) : "not recorded"} />
+          </dl>
+        </header>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Sessions</h2>
-        {sessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No sessions recorded.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Reps</TableHead>
-                <TableHead className="text-right">Mean quality</TableHead>
-                <TableHead className="text-right">Roll range</TableHead>
-                <TableHead className="text-right">Pitch range</TableHead>
-                <TableHead className="text-right">Duration (s)</TableHead>
-                <TableHead className="text-right">Dropped packets</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sessions.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>{fmtDateTime(s.started_at)}</TableCell>
-                  <TableCell className="text-right">{s.n_reps ?? "n/a"}</TableCell>
-                  <TableCell className="text-right">{fmtNum(s.mean_quality)}</TableCell>
-                  <TableCell className="text-right">{fmtNum(s.mean_roll_range_deg)}</TableCell>
-                  <TableCell className="text-right">{fmtNum(s.mean_pitch_range_deg)}</TableCell>
-                  <TableCell className="text-right">{fmtNum(s.mean_duration_s)}</TableCell>
-                  <TableCell className="text-right">{s.dropped_packets ?? "n/a"}</TableCell>
+        <Section title="Sessions">
+          {sessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sessions recorded.</p>
+          ) : (
+            <Table className="text-sm">
+              <TableHeader>
+                <TableRow className={rowCls}>
+                  <TableHead className={th}>Date</TableHead>
+                  <TableHead className={thr}>Reps</TableHead>
+                  <TableHead className={thr}>Mean quality</TableHead>
+                  <TableHead className={thr}>Roll range</TableHead>
+                  <TableHead className={thr}>Pitch range</TableHead>
+                  <TableHead className={thr}>Duration (s)</TableHead>
+                  <TableHead className={thr}>Dropped packets</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
+              </TableHeader>
+              <TableBody>
+                {sessions.map((s) => (
+                  <TableRow key={s.id} className={rowCls}>
+                    <TableCell className={td}>{fmtDateTime(s.started_at)}</TableCell>
+                    <TableCell className={tdr}>{s.n_reps ?? "n/a"}</TableCell>
+                    <TableCell className={tdr}>{fmtNum(s.mean_quality)}</TableCell>
+                    <TableCell className={tdr}>{fmtNum(s.mean_roll_range_deg)}</TableCell>
+                    <TableCell className={tdr}>{fmtNum(s.mean_pitch_range_deg)}</TableCell>
+                    <TableCell className={tdr}>{fmtNum(s.mean_duration_s)}</TableCell>
+                    <TableCell className={tdr}>{s.dropped_packets ?? "n/a"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Trends</h2>
-        <TrendCharts sessions={g.data.sessions} assessments={g.data.assessments} />
-      </section>
+        <Section title="Trends">
+          <TrendCharts sessions={g.data.sessions} assessments={g.data.assessments} />
+        </Section>
 
-      <ImprovementCard imp={g.data.improvement} />
+        <Section title="Improvement index">
+          <div className="break-inside-avoid">
+            <p className="font-display tnum text-[3rem] leading-none text-brass-ink print:text-black">{imp.index == null ? "n/a" : fmtPct(imp.index)}</p>
+            <p className="mt-3 text-[0.8125rem] text-muted-foreground print:text-neutral-600">
+              Baseline: first {imp.baseline_sessions} sessions. Current: last {imp.current_sessions} sessions.
+            </p>
+            <p className="mt-2 max-w-[68ch] text-sm text-muted-foreground print:text-neutral-700">{imp.note}</p>
+            {imp.metrics.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">Not enough sessions yet to compare a baseline with a current window.</p>
+            ) : (
+              <div className="mt-5">
+                <Table className="text-sm">
+                  <TableHeader>
+                    <TableRow className={rowCls}>
+                      <TableHead className={th}>Metric</TableHead>
+                      <TableHead className={thr}>Baseline</TableHead>
+                      <TableHead className={thr}>Current</TableHead>
+                      <TableHead className={thr}>Change (positive = better)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {imp.metrics.map((m) => (
+                      <TableRow key={m.name} className={rowCls}>
+                        <TableCell className={`${td} capitalize`}>{metricLabel(m.name)}</TableCell>
+                        <TableCell className={tdr}>{fmtNum(m.baseline)}</TableCell>
+                        <TableCell className={tdr}>{fmtNum(m.current)}</TableCell>
+                        <TableCell className={tdr}>{fmtPct(m.improvement_pct)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </Section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Clinician marks</h2>
-        <AssessmentTable items={g.data.assessments} />
-      </section>
+        <Section title="Clinician marks">
+          {marks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No marks recorded yet.</p>
+          ) : (
+            <Table className="text-sm">
+              <TableHeader>
+                <TableRow className={rowCls}>
+                  <TableHead className={th}>Date</TableHead>
+                  <TableHead className={thr}>Range</TableHead>
+                  <TableHead className={thr}>Smoothness</TableHead>
+                  <TableHead className={thr}>Control</TableHead>
+                  <TableHead className={thr}>Adherence</TableHead>
+                  <TableHead className={thr}>Overall</TableHead>
+                  <TableHead className={th}>Scale</TableHead>
+                  <TableHead className={th}>Comment</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {marks.map((a) => (
+                  <TableRow key={a.id} className={rowCls}>
+                    <TableCell className={td}>{fmtDate(a.assessed_on)}</TableCell>
+                    <TableCell className={tdr}>{a.rubric.range}</TableCell>
+                    <TableCell className={tdr}>{a.rubric.smoothness}</TableCell>
+                    <TableCell className={tdr}>{a.rubric.control}</TableCell>
+                    <TableCell className={tdr}>{a.rubric.adherence}</TableCell>
+                    <TableCell className={tdr}>{a.rubric.overall}</TableCell>
+                    <TableCell className={td}>{a.scale_name ? `${a.scale_name}: ${a.scale_score ?? "n/a"}` : "none"}</TableCell>
+                    <TableCell className={`${td} max-w-64 whitespace-normal py-1`}>{a.comment ?? ""}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Section>
 
-      <section className="space-y-1 break-inside-avoid">
-        <h2 className="text-lg font-semibold">Plan</h2>
-        {d.plan ? (
-          <p className="text-sm">
-            Levels allowed: {[...d.plan.levels_allowed].sort((a, b) => a - b).join(", ")} - {d.plan.reps_per_level} reps per level - {d.plan.sessions_per_week} sessions per week - adaptive difficulty {d.plan.adapt_on ? "on" : "off"}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">No plan set.</p>
-        )}
-      </section>
+        <Section title="Plan">
+          {d.plan ? (
+            <p>
+              Levels allowed: {[...d.plan.levels_allowed].sort((a, b) => a - b).join(", ")}. {d.plan.reps_per_level} reps per level, {d.plan.sessions_per_week} sessions per week, adaptive difficulty {d.plan.adapt_on ? "on" : "off"}.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No plan set.</p>
+          )}
+        </Section>
 
-      <footer className="border-t pt-3 text-xs text-muted-foreground">
-        Descriptive metrics. Not a clinical diagnosis; no clinical effectiveness is claimed.
-      </footer>
-    </article>
+        <footer className="border-t border-border pt-4 text-[0.8125rem] text-muted-foreground print:text-neutral-600">
+          Descriptive metrics. Not a clinical diagnosis; no clinical effectiveness is claimed.
+        </footer>
+      </article>
+    </div>
   );
 }
