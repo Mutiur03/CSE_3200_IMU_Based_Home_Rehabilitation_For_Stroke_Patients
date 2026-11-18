@@ -1,16 +1,19 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type User } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { Wordmark } from "@/components/brand";
 import { Loading } from "@/components/doctor/states";
 
 class Unauthed extends Error {}
 
+const NAV = [{ href: "/doctor", label: "Patients" }];
+
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const path = usePathname();
   const qc = useQueryClient();
   const me = useQuery<User>({
     queryKey: ["auth", "me"],
@@ -49,21 +52,39 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     );
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b bg-card print:hidden">
-        <nav aria-label="Doctor portal" className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/doctor" className="font-semibold focus-visible:outline-2 focus-visible:outline-ring">
-            Doctor portal
-          </Link>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-muted-foreground sm:inline">{user.name}</span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              Log out
-            </Button>
-          </div>
+    <div className="flex min-h-dvh flex-col md:flex-row print:block">
+      <aside className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-rail px-4 py-3 text-rail-foreground md:sticky md:top-0 md:h-dvh md:w-[248px] md:shrink-0 md:flex-col md:items-stretch md:justify-start md:gap-0 md:px-5 md:py-7 print:hidden">
+        <Link href="/doctor" aria-label="Arc, patients" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring/60">
+          <Wordmark />
+        </Link>
+        <nav aria-label="Doctor portal" className="flex gap-1 md:mt-10 md:flex-col">
+          {NAV.map((n) => {
+            const active = path === n.href || path.startsWith(`${n.href}/`);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex min-h-11 items-center rounded-lg px-3 text-[0.95rem] outline-none transition-colors duration-150 focus-visible:ring-3 focus-visible:ring-sidebar-ring/60 ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-rail-muted hover:bg-sidebar-accent/60 hover:text-rail-foreground"}`}
+              >
+                {active && <span aria-hidden="true" className="absolute inset-y-2.5 left-0 w-0.5 rounded-full bg-brass" />}
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 print:max-w-none print:p-0">{children}</main>
+        <div className="flex items-center gap-3 md:mt-auto md:flex-col md:items-start md:gap-1 md:border-t md:border-sidebar-border md:pt-5">
+          <span className="max-w-40 truncate text-sm text-rail-foreground md:max-w-full">{user.name}</span>
+          <button
+            type="button"
+            onClick={logout}
+            className="-mx-2 min-h-11 rounded-lg px-2 text-sm text-rail-muted outline-none transition-colors duration-150 hover:text-rail-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/60"
+          >
+            Log out
+          </button>
+        </div>
+      </aside>
+      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-8 md:px-10 md:py-12 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

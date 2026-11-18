@@ -24,20 +24,20 @@ export function MessagesTab({ id }: { id: number }) {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h2 className="text-lg font-semibold">Messages</h2>
+    <div className="max-w-2xl space-y-6">
+      <h2 className="text-[1.5rem] leading-tight">Messages</h2>
       {q.isPending ? (
         <Loading rows={3} />
       ) : q.isError ? (
         <ErrorBox error={q.error} retry={() => q.refetch()} />
       ) : q.data.length === 0 ? (
-        <Empty>No messages yet.</Empty>
+        <Empty>No messages yet. Write the first one below.</Empty>
       ) : (
-        <ul className="space-y-2" aria-label="Message thread">
+        <ul className="divide-y divide-border border-y border-border" aria-label="Message thread">
           {q.data.map((m) => (
-            <li key={m.id} className={`rounded-lg border p-3 text-sm ${m.from_user === id ? "bg-muted" : "bg-card"}`}>
-              <p className="mb-1 text-xs text-muted-foreground">
-                {m.from_name} - {fmtDateTime(m.created_at)}
+            <li key={m.id} className={`px-3 py-4 text-sm ${m.from_user === id ? "bg-muted/60" : ""}`}>
+              <p className="mb-1 text-[0.8125rem] text-muted-foreground">
+                <span className="font-medium text-foreground">{m.from_name}</span> <span className="tnum">{fmtDateTime(m.created_at)}</span>
               </p>
               <p className="whitespace-pre-wrap">{m.body}</p>
             </li>
@@ -49,12 +49,12 @@ export function MessagesTab({ id }: { id: number }) {
           e.preventDefault();
           if (body.trim()) send.mutate(body.trim());
         }}
-        className="space-y-2"
+        className="space-y-2.5"
       >
         <Label htmlFor="msg">New message</Label>
         <Textarea id="msg" rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
-        <Button type="submit" disabled={send.isPending || !body.trim()}>
-          {send.isPending ? "Sending..." : "Send"}
+        <Button type="submit" size="lg" disabled={send.isPending || !body.trim()}>
+          {send.isPending ? "Sending..." : "Send message"}
         </Button>
       </form>
     </div>
