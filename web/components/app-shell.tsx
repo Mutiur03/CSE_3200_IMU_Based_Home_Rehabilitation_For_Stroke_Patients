@@ -16,7 +16,7 @@ export function AppShell({ me, nav, children }: { me: User; nav: NavItem[]; chil
   return (
     <div className={`flex flex-col text-lg ${play ? "h-dvh" : "min-h-dvh"}`}>
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-8 gap-y-1 px-5">
+        <div className={`mx-auto flex w-full ${play ? "max-w-5xl" : "max-w-3xl"} flex-wrap items-center justify-between gap-x-8 gap-y-1 px-5`}>
           <Link href="/patient" aria-label="Arc home" className="flex h-16 items-center rounded-lg text-foreground">
             <Wordmark />
           </Link>

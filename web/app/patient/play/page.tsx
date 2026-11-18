@@ -1,5 +1,5 @@
 "use client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ErrorNote } from "@/components/app-shell";
 import { num } from "@/components/patient/util";
@@ -11,6 +11,20 @@ export default function PlayPage() {
   const end = useMutation({
     mutationFn: () => unwrap(api.POST("/api/sessions/end")),
     onSuccess: () => qc.invalidateQueries(),
+  });
+
+  // Lightweight probe so a missing game build shows a calm message, not the iframe's 404 page.
+  const game = useQuery({
+    queryKey: ["game-available"],
+    queryFn: async () => {
+      try {
+        return (await fetch("/play/", { method: "HEAD" })).ok;
+      } catch {
+        return false;
+      }
+    },
+    retry: false,
+    staleTime: 0,
   });
 
   if (end.data) {
@@ -41,8 +55,16 @@ export default function PlayPage() {
         <p className="hidden flex-1 text-base text-muted-foreground sm:block">Wear the wristband and rest your forearm on the table.</p>
       </div>
       {end.error && <div className="px-5 py-2"><ErrorNote error={end.error} /></div>}
-      <iframe title="Rehabilitation game" src="/play/" allow="fullscreen; autoplay" className="min-h-0 w-full flex-1 bg-muted" />
-      <p className="border-t border-border px-5 py-2 text-base text-muted-foreground">If this area stays blank, the game is not installed on this server. Tell your doctor or the clinic.</p>
+      {game.isPending ? (
+        <div className="flex-1 bg-muted" />
+      ) : game.data ? (
+        <iframe title="Rehabilitation game" src="/play/" allow="fullscreen; autoplay" className="min-h-0 w-full flex-1 bg-muted" />
+      ) : (
+        <div role="status" className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-5 py-14">
+          <h1 className="text-[1.75rem] leading-tight">The game is not available right now</h1>
+          <p className="mt-3 text-muted-foreground">The game is not available right now. Ask your clinic to check the setup.</p>
+        </div>
+      )}
     </div>
   );
 }

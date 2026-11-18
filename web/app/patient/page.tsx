@@ -73,7 +73,16 @@ export default function PatientHome() {
             <span className="font-display tnum text-[2.5rem] leading-none">{done}{plan.data ? ` of ${plan.data.sessions_per_week}` : ""}</span>
             <span className="ml-2 text-muted-foreground">sessions done</span>
             {plan.data && plan.data.sessions_per_week > 0 && (
-              <progress className="mt-4 block h-2 w-full max-w-xs accent-primary" max={plan.data.sessions_per_week} value={Math.min(done, plan.data.sessions_per_week)} aria-label="Sessions done this week" />
+              <div
+                role="progressbar"
+                aria-label="Sessions done this week"
+                aria-valuemin={0}
+                aria-valuemax={plan.data.sessions_per_week}
+                aria-valuenow={Math.min(done, plan.data.sessions_per_week)}
+                className="mt-4 h-2 w-full max-w-xs overflow-hidden rounded-full bg-border"
+              >
+                <div className="h-full bg-primary" style={{ width: `${(Math.min(done, plan.data.sessions_per_week) / plan.data.sessions_per_week) * 100}%` }} />
+              </div>
             )}
             <span className="mt-2 block text-base text-muted-foreground">The week starts on Monday.</span>
           </dd>
