@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     jwt_ttl_hours: int = 12
     cookie_secure: bool = False  # True behind HTTPS
     cookie_name: str = "session"
-    stub_mode: bool = True  # wave 0: routers return fixture data; streams A/B replace stubs and remove this
 
 
 @lru_cache

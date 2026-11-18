@@ -24,7 +24,7 @@
   "/api/game_event": {
    "post": {
     "summary": "Game Event",
-    "description": "The game finished a rep. Pair it with the sensor features over that rep's time window.",
+    "description": "The game finished a rep. Pair it with the sensor features over that rep's time window.\nWith a patient login cookie (platform mode) the rep is also stored in the patient's open session and the plan applies.",
     "operationId": "game_event_api_game_event_post",
     "requestBody": {
      "content": {
