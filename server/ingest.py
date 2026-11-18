@@ -13,7 +13,8 @@ import time
 from collections import deque
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from starlette.requests import HTTPConnection
 from sqlalchemy import select
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -233,6 +234,20 @@ def _cookie_user(conn):
     return user_from_token(conn.cookies.get(get_settings().cookie_name))
 
 
+def _staff(conn: HTTPConnection):
+    """Live/ops views and device controls expose every patient's raw data: in platform mode only a logged-in doctor/admin. Lab mode stays open."""
+    if db.SessionLocal is None:
+        return
+    u = _cookie_user(conn)
+    if u is None:
+        raise HTTPException(401, "not logged in")
+    if u.role not in ("doctor", "admin"):
+        raise HTTPException(403, "forbidden")
+
+
+STAFF = [Depends(_staff)]
+
+
 def map_level(target: int, level: int, allowed: list[int]) -> int:
     """Fit the policy's next level into the doctor's allowed levels: going up -> nearest allowed >= target, else the lowest
     allowed (wrap); going down -> nearest allowed <= target, else the lowest."""
@@ -300,7 +315,7 @@ async def imu_stream(ws: WebSocket):
             try:
                 batch = await ingest(await ws.receive_text(), via_ws=True, key=ws.headers.get("x-device-key"))
             except ValidationError as e:
-                await ws.send_json({"error": e.errors(include_url=False, include_context=False)})
+                await ws.send_json({"error": e.errors(include_url=False, include_context=False, include_input=False)})
                 continue
             except Unauthorized:
                 await ws.send_json({"error": "unauthorized"})
@@ -322,7 +337,7 @@ async def imu_post(request: Request):
     try:
         batch = await ingest(await request.body(), key=request.headers.get("x-device-key"))
     except ValidationError as e:
-        raise HTTPException(422, e.errors(include_url=False, include_context=False))
+        raise HTTPException(422, e.errors(include_url=False, include_context=False, include_input=False))
     except Unauthorized:
         raise HTTPException(401, "unauthorized")
     return {"ok": True, "samples": len(batch.samples)}
@@ -331,8 +346,8 @@ async def imu_post(request: Request):
 class GameEvent(BaseModel):
     device_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     level: int = Field(ge=1, le=9)  # the game's level, 1-9 (one task each)
-    task: str = Field(max_length=100)
-    rep: int  # repetition number within the level, as the game counts it
+    task: str = Field(max_length=100, pattern=r"^[^\x00]*$")  # Postgres text cannot hold NUL
+    rep: int = Field(ge=0, le=100_000)  # repetition number within the level, as the game counts it
     reps_required: int = Field(default=3, ge=1, le=50)  # reps that finish a level
     duration_s: float = Field(gt=0, le=600)  # game-measured rep duration; window = the last duration_s before this event
 
@@ -404,7 +419,7 @@ async def buzz(dev: Device):
             dev.ws = None
 
 
-@router.post("/api/rep_done/{device_id}")
+@router.post("/api/rep_done/{device_id}", dependencies=STAFF)
 async def rep_done(device_id: str):
     """Buzz only, no scoring or adaptation (used by the load cell game)."""
     dev = devices.get(device_id)
@@ -414,7 +429,7 @@ async def rep_done(device_id: str):
     return {"ok": True}
 
 
-@router.post("/api/tare_load/{device_id}")
+@router.post("/api/tare_load/{device_id}", dependencies=STAFF)
 def tare_load(device_id: str):
     """Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded."""
     dev = devices.get(device_id)
@@ -425,7 +440,7 @@ def tare_load(device_id: str):
     return {"ok": True, "offset_counts": dev.load_offset}
 
 
-@router.post("/api/zero/{device_id}")
+@router.post("/api/zero/{device_id}", dependencies=STAFF)
 def zero(device_id: str):
     """Calibrate: the current pose becomes the neutral for rep detection. Hold the arm at rest first."""
     dev = devices.get(device_id)
@@ -436,7 +451,7 @@ def zero(device_id: str):
     return {"ok": True, "neutral_deg": round(angle, 2)}
 
 
-@router.post("/api/reps/reset/{device_id}")
+@router.post("/api/reps/reset/{device_id}", dependencies=STAFF)
 def reset_reps(device_id: str):
     """Zero the rep counter, keep the neutral."""
     dev = devices.get(device_id)
@@ -450,7 +465,7 @@ def reset_reps(device_id: str):
     return {"ok": True}
 
 
-@router.post("/api/adapt/{mode}")
+@router.post("/api/adapt/{mode}", dependencies=STAFF)
 def set_adapt(mode: str):
     """Turn quality-driven level choice on or off (off = always go to the next level; quality is still computed)."""
     global ADAPT
@@ -460,7 +475,7 @@ def set_adapt(mode: str):
     return {"ok": True, "adapt": ADAPT}
 
 
-@router.get("/api/session")
+@router.get("/api/session", dependencies=STAFF)
 def session():
     """Per-device session summary from the game reps so far, plus link health."""
     out = {}
@@ -492,7 +507,7 @@ def session():
     return out
 
 
-@router.post("/api/axis/{axis}")
+@router.post("/api/axis/{axis}", dependencies=STAFF)
 def set_axis(axis: str):
     """Switch the rep channel for all devices. Neutral is cleared (re-set on stillness or Zero)."""
     global REP_AXIS
@@ -504,7 +519,7 @@ def set_axis(axis: str):
     return {"ok": True, "axis": axis}
 
 
-@router.get("/api/status")
+@router.get("/api/status", dependencies=STAFF)
 def status():
     return {
         "server_time_ms": int(time.time() * 1000),
@@ -513,7 +528,7 @@ def status():
     }
 
 
-@router.websocket("/ws/live")
+@router.websocket("/ws/live", dependencies=STAFF)
 async def live(ws: WebSocket):
     await ws.accept()
     live_clients.add(ws)
