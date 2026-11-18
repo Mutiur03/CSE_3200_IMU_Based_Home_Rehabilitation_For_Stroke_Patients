@@ -115,7 +115,7 @@ export function PatientList() {
                     </div>
                   </TableCell>
                   <TableCell className={`${TD} hidden text-muted-foreground md:table-cell`}>{p.device_id ?? "None"}</TableCell>
-                  <TableCell className={TD}>
+                  <TableCell className={`${TD} hidden md:table-cell`}>
                     <span title={fmtDateTime(p.last_session_at)}>{fmtRelative(p.last_session_at)}</span>
                   </TableCell>
                   <TableCell className={`${TD} hidden text-right md:table-cell`}>{p.sessions_total}</TableCell>
