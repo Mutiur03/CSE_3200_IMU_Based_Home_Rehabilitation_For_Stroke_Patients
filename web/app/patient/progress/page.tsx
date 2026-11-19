@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { TrendChart } from "@/components/patient/trend-chart";
 import { fmtDay, num } from "@/components/patient/util";
 import { PageHeader } from "@/components/page-header";
 import { Stat } from "@/components/stat";
 import { load, requireRole } from "@/lib/server-api";
+
+export const metadata: Metadata = { title: "My progress" };
 
 export default async function ProgressPage() {
   const { id } = await requireRole("patient");

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { StartButton } from "@/components/patient/start-button";
 import { fmtDate, num, weekStart } from "@/components/patient/util";
 import { PageHeader } from "@/components/page-header";
 import { load, loadOptional, requireRole } from "@/lib/server-api";
+
+export const metadata: Metadata = { title: "Home" };
 
 export default async function PatientHome() {
   const me = await requireRole("patient");

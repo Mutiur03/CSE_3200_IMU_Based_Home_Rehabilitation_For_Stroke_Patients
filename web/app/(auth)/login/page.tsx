@@ -1,5 +1,6 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ export default function LoginPage() {
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
       <section className="relative flex min-h-64 flex-col justify-between overflow-hidden bg-rail p-6 text-rail-foreground md:p-12 lg:min-h-dvh">
         <TraceArt className="pointer-events-none absolute inset-0 size-full opacity-40 lg:opacity-100" />
-        <Wordmark className="relative" />
+        <Link href="/" aria-label="Arc, home" className="relative flex min-h-11 w-fit items-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass"><Wordmark /></Link>
         <div className="relative mt-16 max-w-xl lg:mt-0">
           <h1 className="font-display text-[2.25rem] leading-[1.08] md:text-[3.5rem]">Rehabilitation at home, measured.</h1>
           <p className="mt-4 max-w-md text-base text-rail-muted md:text-lg">

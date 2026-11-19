@@ -176,3 +176,15 @@
     font-size: 11pt;
   }
 }
+
+/* Large monitors: everything is sized in rem, so raising the root size scales the whole interface (type, spacing, widths). */
+@media (min-width: 1920px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+@media (min-width: 2400px) {
+  html {
+    font-size: 125%;
+  }
+}

@@ -144,7 +144,7 @@ export function PatientView({
 
       <Tabs defaultValue="overview">
         <ScrollFade>
-          <TabsList variant="line" className="mb-8 h-11 w-full justify-start gap-6 overflow-x-auto border-b border-border p-0">
+          <TabsList variant="line" className="mb-8 h-11 w-full justify-start gap-6 overflow-x-auto overflow-y-hidden border-b border-border p-0">
             {["overview", "sessions", "marking", "plan", "messages"].map((t) => (
               <TabsTrigger key={t} value={t} className="h-11 flex-none px-0.5 text-[0.95rem] capitalize after:bottom-[-1px] after:bg-primary">
                 {t}

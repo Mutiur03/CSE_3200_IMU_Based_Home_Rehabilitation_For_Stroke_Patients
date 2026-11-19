@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PlayClient } from "@/components/patient/play-client";
 
 // Production: same origin (/play/). Local dev without Docker: NEXT_PUBLIC_PLAY_URL=http://localhost:8000/play/ (the login cookie is shared across localhost ports).
@@ -13,6 +14,8 @@ async function gameAvailable() {
     return false;
   }
 }
+
+export const metadata: Metadata = { title: "Play" };
 
 export default async function PlayPage() {
   return <PlayClient src={PLAY} available={await gameAvailable()} />;

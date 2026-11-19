@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { SessionView } from "@/components/doctor/session-view";
 import { load, loadOptional } from "@/lib/server-api";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return { title: `Session ${(await params).id}` };
+}
 
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);

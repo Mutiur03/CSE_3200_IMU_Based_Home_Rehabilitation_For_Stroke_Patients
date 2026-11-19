@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
 import { RegisterDeviceDialog } from "@/components/admin/register-device-dialog";
 import { UsersTable } from "@/components/admin/users-table";
@@ -6,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { load, serverApi } from "@/lib/server-api";
 
 const H = "h-11 px-3 text-[0.8125rem] font-normal text-muted-foreground";
+
+export const metadata: Metadata = { title: "Users and devices" };
 
 export default async function AdminPage() {
   const [users, devices] = await Promise.all([load((api) => api.GET("/api/admin/users")), load((api) => api.GET("/api/admin/devices"))]);

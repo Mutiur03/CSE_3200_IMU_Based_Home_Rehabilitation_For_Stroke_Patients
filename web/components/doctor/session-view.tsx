@@ -38,11 +38,11 @@ export function SessionView({ d, trace, patientName }: { d: Schemas["SessionDeta
 
   return (
     <div>
-      <Link href={`/doctor/patients/${d.patient_id}`} className="mb-6 inline-block rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      <Link href={`/doctor/patients/${d.patient_id}`} className="-ml-1 mb-4 inline-flex min-h-11 items-center rounded-sm px-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         Back to patient
       </Link>
       <PageHeader
-        title={patientName ?? "Session"}
+        title={patientName ? <Link href={`/doctor/patients/${d.patient_id}`} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{patientName}</Link> : "Session"}
         description={`Session on ${fmtDateTime(d.started_at)}, device ${d.device_id}.`}
         className="mb-0"
       />

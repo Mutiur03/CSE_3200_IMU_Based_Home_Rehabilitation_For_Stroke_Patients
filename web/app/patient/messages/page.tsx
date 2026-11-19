@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { MessageForm } from "@/components/patient/message-form";
 import { fmtDate } from "@/components/patient/util";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
 import { load, requireRole } from "@/lib/server-api";
+
+export const metadata: Metadata = { title: "Messages" };
 
 export default async function MessagesPage() {
   const { id } = await requireRole("patient");

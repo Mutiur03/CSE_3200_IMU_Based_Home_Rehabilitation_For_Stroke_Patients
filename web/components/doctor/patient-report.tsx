@@ -44,7 +44,7 @@ export function PatientReport({ id, d, progress: g }: { id: number; d: Schemas["
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/doctor/patients/${id}`}
-          className="rounded-sm text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="-ml-1 inline-flex min-h-11 items-center rounded-sm px-1 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Back to patient
         </Link>
@@ -62,7 +62,7 @@ export function PatientReport({ id, d, progress: g }: { id: number; d: Schemas["
             <Wordmark />
             <p className="text-[0.8125rem] text-muted-foreground print:text-neutral-600">Rehabilitation progress report</p>
           </div>
-          <h1 className="mt-8 text-[2.25rem] leading-[1.1] sm:text-[2.75rem] print:text-[26pt]">{d.name}</h1>
+          <h1 className="mt-8 text-[2.25rem] leading-[1.1] sm:text-[2.75rem] print:text-[26pt]"><Link href={`/doctor/patients/${id}`} className="underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring print:no-underline">{d.name}</Link></h1>
           <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
             <Fact label="Period" value={period} />
             <Fact label="Sessions" value={<span className="tnum">{d.sessions_total}</span>} />

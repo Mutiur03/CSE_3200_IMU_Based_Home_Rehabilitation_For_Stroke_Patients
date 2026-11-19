@@ -30,10 +30,10 @@ export function AppShell({ me, nav, children }: { me: User; nav: NavItem[]; chil
                   key={n.href}
                   href={n.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex h-14 items-center rounded-lg px-3 transition-colors duration-150 sm:h-16 ${active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`relative flex h-14 items-center whitespace-nowrap rounded-lg px-2 text-base transition-colors duration-150 sm:h-16 sm:px-3 sm:text-lg ${active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {n.label}
-                  {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 bg-brass" />}
+                  {active && <span aria-hidden="true" className="absolute inset-x-2 bottom-0 h-0.5 bg-brass sm:inset-x-3" />}
                 </Link>
               );
             })}

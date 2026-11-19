@@ -11,12 +11,12 @@ export function RailShell({ me, nav, children }: { me: User; nav: NavItem[]; chi
   const path = usePathname();
   const logout = useLogout();
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row print:block">
-      <aside className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-rail px-4 py-3 text-rail-foreground md:sticky md:top-0 md:h-dvh md:w-[248px] md:shrink-0 md:flex-col md:items-stretch md:justify-start md:gap-0 md:px-5 md:py-7 print:hidden">
-        <Link href="/admin" aria-label="Arc, admin home" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring/60">
+    <div className="flex min-h-dvh flex-col lg:flex-row print:block">
+      <aside className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-rail px-4 py-3 text-rail-foreground lg:sticky lg:top-0 lg:h-dvh lg:w-[248px] lg:shrink-0 lg:flex-col lg:items-stretch lg:justify-start lg:gap-0 lg:px-5 lg:py-7 print:hidden">
+        <Link href="/admin" aria-label="Arc, admin home" className="flex min-h-11 items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring/60">
           <Wordmark />
         </Link>
-        <nav aria-label="Admin portal" className="flex gap-1 md:mt-10 md:flex-col">
+        <nav aria-label="Admin portal" className="flex gap-1 lg:mt-10 lg:flex-col">
           {nav.map((n) => {
             const active = path === n.href || path.startsWith(`${n.href}/`);
             return (
@@ -32,8 +32,8 @@ export function RailShell({ me, nav, children }: { me: User; nav: NavItem[]; chi
             );
           })}
         </nav>
-        <div className="flex items-center gap-3 md:mt-auto md:flex-col md:items-start md:gap-1 md:border-t md:border-sidebar-border md:pt-5">
-          <span className="max-w-40 truncate text-sm text-rail-foreground md:max-w-full">{me.name}</span>
+        <div className="flex items-center gap-3 lg:mt-auto lg:flex-col lg:items-start lg:gap-1 lg:border-t lg:border-sidebar-border lg:pt-5">
+          <span className="max-w-40 truncate text-sm text-rail-foreground lg:max-w-full">{me.name}</span>
           <button
             type="button"
             onClick={() => logout.mutate()}
@@ -44,7 +44,7 @@ export function RailShell({ me, nav, children }: { me: User; nav: NavItem[]; chi
           </button>
         </div>
       </aside>
-      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-8 md:px-10 md:py-12 print:max-w-none print:p-0">{children}</main>
+      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-8 lg:px-10 lg:py-12 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

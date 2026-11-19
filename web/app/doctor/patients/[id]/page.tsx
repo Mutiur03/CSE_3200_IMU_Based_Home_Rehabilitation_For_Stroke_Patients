@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { PatientView } from "@/components/doctor/patient-view";
 import { load } from "@/lib/server-api";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const id = Number((await params).id);
+  const d = await load((api) => api.GET("/api/patients/{patient_id}", { params: { path: { patient_id: id } } }));
+  return { title: d.name };
+}
 
 export default async function PatientPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
