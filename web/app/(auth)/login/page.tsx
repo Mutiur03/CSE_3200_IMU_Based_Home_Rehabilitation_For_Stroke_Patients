@@ -1,7 +1,6 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -11,7 +10,7 @@ import { Wordmark } from "@/components/brand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
-import { HOME, useMe } from "@/lib/auth";
+import { HOME } from "@/lib/home";
 
 const schema = z.object({ email: z.string().min(1, "Enter your email"), password: z.string().min(1, "Enter your password") });
 type Form = z.infer<typeof schema>;
@@ -19,12 +18,7 @@ type Form = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const qc = useQueryClient();
-  const me = useMe();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) });
-
-  useEffect(() => {
-    if (me.data) router.replace(HOME[me.data.role]);
-  }, [me.data, router]);
 
   async function onSubmit(v: Form) {
     try {

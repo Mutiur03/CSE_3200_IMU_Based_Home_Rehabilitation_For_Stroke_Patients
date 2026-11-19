@@ -1,11 +1,10 @@
-"use client";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { spansYears, fmtDate, fmtDateTime, fmtNum, fmtPct, metricLabel } from "./format";
-import { usePatient, useProgress } from "./queries";
-import { ErrorBox, Loading } from "./states";
+import type { Schemas } from "@/lib/api";
+import { PrintButton } from "./print-button";
 import { TrendCharts } from "./trend-charts";
 
 // Printed-document table styles: 32px rows, hairline rules, tabular numerals.
@@ -33,16 +32,10 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function PatientReport({ id }: { id: number }) {
-  const p = usePatient(id);
-  const g = useProgress(id);
-  if (p.isPending || g.isPending) return <Loading rows={5} />;
-  if (p.isError) return <ErrorBox error={p.error} retry={() => p.refetch()} />;
-  if (g.isError) return <ErrorBox error={g.error} retry={() => g.refetch()} />;
-  const d = p.data;
-  const imp = g.data.improvement;
-  const sessions = [...g.data.sessions].sort((a, b) => a.started_at.localeCompare(b.started_at));
-  const marks = [...g.data.assessments].sort((a, b) => b.assessed_on.localeCompare(a.assessed_on));
+export function PatientReport({ id, d, progress: g }: { id: number; d: Schemas["PatientDetail"]; progress: Schemas["Progress"] }) {
+  const imp = g.improvement;
+  const sessions = [...g.sessions].sort((a, b) => a.started_at.localeCompare(b.started_at));
+  const marks = [...g.assessments].sort((a, b) => b.assessed_on.localeCompare(a.assessed_on));
   const yr = spansYears([...sessions.map((x) => x.started_at), ...marks.map((m) => m.assessed_on)]);
   const period = sessions.length ? `${fmtDate(sessions[0].started_at, yr)} to ${fmtDate(sessions[sessions.length - 1].started_at, yr)}` : "no sessions";
 
@@ -59,7 +52,7 @@ export function PatientReport({ id }: { id: number }) {
           <a href={`/api/patients/${id}/reps.csv`} download className={buttonVariants({ variant: "outline" })}>
             Download CSV
           </a>
-          <Button onClick={() => window.print()}>Print</Button>
+          <PrintButton />
         </div>
       </div>
 
@@ -115,7 +108,7 @@ export function PatientReport({ id }: { id: number }) {
         </Section>
 
         <Section title="Trends">
-          <TrendCharts sessions={g.data.sessions} assessments={g.data.assessments} />
+          <TrendCharts sessions={g.sessions} assessments={g.assessments} />
         </Section>
 
         <Section title="Improvement index">

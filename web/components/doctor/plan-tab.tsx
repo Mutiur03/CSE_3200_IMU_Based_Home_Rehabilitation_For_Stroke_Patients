@@ -2,7 +2,8 @@
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, unwrap, type Schemas } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ const planSchema = z.object({
 type PlanValues = z.infer<typeof planSchema>;
 
 function PlanForm({ id, plan }: { id: number; plan: Schemas["PlanOut"] | null }) {
-  const qc = useQueryClient();
+  const router = useRouter();
   const {
     register,
     control,
@@ -39,7 +40,7 @@ function PlanForm({ id, plan }: { id: number; plan: Schemas["PlanOut"] | null })
       unwrap(api.PUT("/api/patients/{patient_id}/plan", { params: { path: { patient_id: id } }, body: { ...v, levels_allowed: [...v.levels_allowed].sort((a, b) => a - b) } })),
     onSuccess: () => {
       toast.success("Plan saved");
-      qc.invalidateQueries({ queryKey: ["doctor", "patient", id] });
+      router.refresh();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -107,7 +108,7 @@ const alertSchema = z.object({
 type AlertValues = z.infer<typeof alertSchema>;
 
 function AlertForm({ id, rule }: { id: number; rule: Schemas["AlertRuleIO"] | null }) {
-  const qc = useQueryClient();
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -129,7 +130,7 @@ function AlertForm({ id, rule }: { id: number; rule: Schemas["AlertRuleIO"] | nu
       ),
     onSuccess: () => {
       toast.success("Alert rules saved");
-      qc.invalidateQueries({ queryKey: ["doctor"] });
+      router.refresh();
     },
     onError: (e) => toast.error(e.message),
   });

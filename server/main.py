@@ -44,9 +44,9 @@ if WEB_DIR.is_dir():
     app.mount("/play", StaticFiles(directory=WEB_DIR, html=True), name="play")
 
 if __name__ == "__main__":
-    import os
-
     import uvicorn
 
-    # 0.0.0.0 so the ESP32 can reach it on the LAN. Reload is opt-in (IMU_RELOAD=1): a restart mid-session drops the ESP32 link.
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=os.environ.get("IMU_RELOAD") == "1")
+    from settings import get_settings
+
+    # 0.0.0.0 so the ESP32 can reach it on the LAN. Reload is opt-in (IMU_RELOAD=1 in server/.env): a restart mid-session drops the ESP32 link.
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=get_settings().imu_reload)

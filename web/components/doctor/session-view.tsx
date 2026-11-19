@@ -1,29 +1,21 @@
-"use client";
 import Link from "next/link";
 import { Fragment } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Stat } from "@/components/stat";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDateTime, fmtNum } from "./format";
-import { usePatient, useSession, useTrace } from "./queries";
-import { Empty, ErrorBox, Loading } from "./states";
+import type { Schemas } from "@/lib/api";
+import { Empty } from "./states";
 import { TracePlot } from "./trace-plot";
 
 const th = "h-11 px-3 text-right text-[0.8125rem] font-medium text-muted-foreground";
 const td = "h-11 px-3 text-right tnum";
 
-function Trace({ id }: { id: number }) {
-  const t = useTrace(id);
-  if (t.isPending) return <Loading rows={2} />;
-  if (t.isError) return <ErrorBox error={t.error} retry={() => t.refetch()} />;
-  if (t.data === null) return <Empty>No signal trace is stored for this session (404). Only rep summaries are available.</Empty>;
-  if (t.data.points.length === 0) return <Empty>The stored trace has no samples.</Empty>;
-  return <TracePlot trace={t.data} />;
-}
-
-function PatientName({ id }: { id: number }) {
-  const p = usePatient(id);
-  return <>{p.data?.name ?? "Session"}</>;
+/** trace === null: no trace stored for this session (404). */
+function Trace({ trace }: { trace: Schemas["Trace"] | null }) {
+  if (trace === null) return <Empty>No signal trace is stored for this session (404). Only rep summaries are available.</Empty>;
+  if (trace.points.length === 0) return <Empty>The stored trace has no samples.</Empty>;
+  return <TracePlot trace={trace} />;
 }
 
 function duration(a: string, b?: string | null) {
@@ -32,11 +24,7 @@ function duration(a: string, b?: string | null) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function SessionView({ id }: { id: number }) {
-  const s = useSession(id);
-  if (s.isPending) return <Loading rows={5} />;
-  if (s.isError) return <ErrorBox error={s.error} retry={() => s.refetch()} />;
-  const d = s.data;
+export function SessionView({ d, trace, patientName }: { d: Schemas["SessionDetail"]; trace: Schemas["Trace"] | null; patientName?: string }) {
   const len = duration(d.started_at, d.ended_at);
 
   // Group consecutive reps by level and task for the table subheadings.
@@ -54,7 +42,7 @@ export function SessionView({ id }: { id: number }) {
         Back to patient
       </Link>
       <PageHeader
-        title={<PatientName id={d.patient_id} />}
+        title={patientName ?? "Session"}
         description={`Session on ${fmtDateTime(d.started_at)}, device ${d.device_id}.`}
         className="mb-0"
       />
@@ -72,7 +60,7 @@ export function SessionView({ id }: { id: number }) {
           <h2 id="replay" className="text-xl">Signal replay</h2>
           <p className="text-[0.8125rem] text-muted-foreground">Pitch and roll in degrees. Scroll or drag the slider to zoom.</p>
         </div>
-        <Trace id={id} />
+        <Trace trace={trace} />
       </section>
 
       <section className="py-8" aria-labelledby="reps">

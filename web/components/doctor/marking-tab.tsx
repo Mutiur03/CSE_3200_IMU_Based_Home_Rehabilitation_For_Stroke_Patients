@@ -2,16 +2,15 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api, unwrap } from "@/lib/api";
+import { api, unwrap, type Schemas } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AssessmentTable } from "./assessment-table";
-import { ErrorBox, Loading } from "./states";
-import { useAssessments } from "./queries";
 
 const rubricField = z.number({ error: "Enter a whole number 1 to 5" }).int("Whole number").min(1, "1 to 5").max(5, "1 to 5");
 const schema = z.object({
@@ -35,9 +34,8 @@ const RUBRIC = [
   ["overall", "Overall"],
 ] as const;
 
-export function MarkingTab({ id }: { id: number }) {
-  const qc = useQueryClient();
-  const list = useAssessments(id);
+export function MarkingTab({ id, assessments }: { id: number; assessments: Schemas["AssessmentOut"][] }) {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -62,8 +60,7 @@ export function MarkingTab({ id }: { id: number }) {
     onSuccess: () => {
       toast.success("Marks saved");
       reset({ assessed_on: new Date().toLocaleDateString("sv"), scale_name: "", scale_score: "", comment: "" });
-      qc.invalidateQueries({ queryKey: ["doctor", "assessments", id] });
-      qc.invalidateQueries({ queryKey: ["doctor", "progress", id] });
+      router.refresh();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -117,7 +114,7 @@ export function MarkingTab({ id }: { id: number }) {
 
       <section className="space-y-4">
         <h2 className="text-[1.5rem] leading-tight">History</h2>
-        {list.isPending ? <Loading rows={2} /> : list.isError ? <ErrorBox error={list.error} retry={() => list.refetch()} /> : <AssessmentTable items={list.data} />}
+        <AssessmentTable items={assessments} />
       </section>
     </div>
   );

@@ -429,7 +429,14 @@ func _on_toggle_input_mode() -> void:
 	_update_imu_status_ui()
 
 
+var _web_fullscreen_done := false
+
+
 func _input(event: InputEvent) -> void:
+	# Standalone web build only: go fullscreen on the first click/key (browsers need a user gesture). Embedded in the site, the page goes fullscreen itself.
+	if OS.has_feature("web") and not _web_fullscreen_done and JavaScriptBridge.eval("window.self === window.top") and ((event is InputEventMouseButton and event.pressed) or (event is InputEventKey and event.pressed)):
+		_web_fullscreen_done = true
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	if event is InputEventKey and event.is_pressed():
 		if event.keycode == KEY_C:
 			calibrate_imu()

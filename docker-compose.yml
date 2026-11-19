@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: imu
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
       POSTGRES_DB: imu
+    ports: ["127.0.0.1:15432:5432"]  # local dev: the backend run on the host (python main.py) connects here; loopback only
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U imu -d imu"]

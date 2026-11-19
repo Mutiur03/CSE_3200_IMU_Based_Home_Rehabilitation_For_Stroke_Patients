@@ -1,24 +1,12 @@
-"use client";
-import { useQuery } from "@tanstack/react-query";
-import { ErrorNote, Loading } from "@/components/app-shell";
 import { TrendChart } from "@/components/patient/trend-chart";
 import { fmtDay, num } from "@/components/patient/util";
 import { PageHeader } from "@/components/page-header";
 import { Stat } from "@/components/stat";
-import { api, unwrap } from "@/lib/api";
-import { useMe } from "@/lib/auth";
+import { load, requireRole } from "@/lib/server-api";
 
-export default function ProgressPage() {
-  const id = useMe().data?.id ?? 0;
-  const q = useQuery({
-    queryKey: ["progress", id],
-    queryFn: () => unwrap(api.GET("/api/patients/{patient_id}/progress", { params: { path: { patient_id: id } } })),
-    enabled: id > 0,
-  });
-  if (q.isPending) return <Loading />;
-  if (q.error) return <ErrorNote error={q.error} retry={() => q.refetch()} />;
-
-  const { sessions, improvement, assessments } = q.data;
+export default async function ProgressPage() {
+  const { id } = await requireRole("patient");
+  const { sessions, improvement, assessments } = await load((api) => api.GET("/api/patients/{patient_id}/progress", { params: { path: { patient_id: id } } }));
   const finished = sessions.filter((s) => s.ended_at).sort((a, b) => a.started_at.localeCompare(b.started_at));
   const multiYear = new Set(finished.map((s) => new Date(s.started_at).getFullYear())).size > 1;
   const rows = finished.map((s) => ({

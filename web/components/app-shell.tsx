@@ -13,10 +13,12 @@ export function AppShell({ me, nav, children }: { me: User; nav: NavItem[]; chil
   const path = usePathname();
   const logout = useLogout();
   const play = path.startsWith("/patient/play");
+  // The game gets the whole screen: no navbar on /patient/play (the page has its own End session bar).
+  if (play) return <main className="flex h-dvh min-h-0 flex-col text-lg">{children}</main>;
   return (
-    <div className={`flex flex-col text-lg ${play ? "h-dvh" : "min-h-dvh"}`}>
+    <div className="flex min-h-dvh flex-col text-lg">
       <header className="border-b border-border bg-card">
-        <div className={`mx-auto flex w-full ${play ? "max-w-5xl" : "max-w-3xl"} flex-wrap items-center justify-between gap-x-8 gap-y-1 px-5`}>
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-8 gap-y-1 px-5">
           <Link href="/patient" aria-label="Arc home" className="flex h-16 items-center rounded-lg text-foreground">
             <Wordmark />
           </Link>
@@ -44,7 +46,7 @@ export function AppShell({ me, nav, children }: { me: User; nav: NavItem[]; chil
           </div>
         </div>
       </header>
-      <main className={play ? "flex min-h-0 flex-1 flex-col" : "mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 py-10 md:py-14"}>{children}</main>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 py-10 md:py-14">{children}</main>
     </div>
   );
 }

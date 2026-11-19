@@ -1,6 +1,7 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -21,12 +22,12 @@ type Form = z.infer<typeof schema>;
 export function RegisterDeviceDialog({ patients }: { patients: User[] }) {
   const [open, setOpen] = useState(false);
   const [issued, setIssued] = useState<Schemas["DeviceRegisterOut"] | null>(null);
-  const qc = useQueryClient();
+  const router = useRouter();
   const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema), defaultValues: { device_id: "", patient_id: "" } });
   const create = useMutation({
     mutationFn: (v: Form) => unwrap(api.POST("/api/admin/devices", { body: { device_id: v.device_id, patient_id: v.patient_id ? Number(v.patient_id) : null } })),
     onSuccess: (d) => {
-      qc.invalidateQueries({ queryKey: ["admin-devices"] });
+      router.refresh();
       reset();
       setOpen(false);
       setIssued(d);

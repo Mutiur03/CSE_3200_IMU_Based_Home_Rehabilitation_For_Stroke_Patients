@@ -1,51 +1,31 @@
-"use client";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { ErrorNote, Loading } from "@/components/app-shell";
-import { NativeSelect } from "@/components/admin/fields";
 import { CreateUserDialog } from "@/components/admin/create-user-dialog";
 import { RegisterDeviceDialog } from "@/components/admin/register-device-dialog";
+import { UsersTable } from "@/components/admin/users-table";
 import { PageHeader } from "@/components/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api, unwrap } from "@/lib/api";
+import { load, serverApi } from "@/lib/server-api";
 
 const H = "h-11 px-3 text-[0.8125rem] font-normal text-muted-foreground";
 
-export default function AdminPage() {
-  const qc = useQueryClient();
-  const users = useQuery({ queryKey: ["admin-users"], queryFn: () => unwrap(api.GET("/api/admin/users")) });
-  const devices = useQuery({ queryKey: ["admin-devices"], queryFn: () => unwrap(api.GET("/api/admin/devices")) });
-  const assign = useMutation({
-    mutationFn: async (v: { patient_id: number; doctor_id: number }) => {
-      const { error, response } = await api.PUT("/api/admin/patients/{patient_id}/doctor", { params: { path: { patient_id: v.patient_id } }, body: { doctor_id: v.doctor_id } });
-      if (error !== undefined) throw new Error(`HTTP ${response.status}`);
-    },
-    onSuccess: () => toast.success("Doctor assigned"),
-    onError: (e) => toast.error(e.message),
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
-      qc.invalidateQueries({ queryKey: ["admin-patient"] });
-    },
-  });
+export default async function AdminPage() {
+  const [users, devices] = await Promise.all([load((api) => api.GET("/api/admin/users")), load((api) => api.GET("/api/admin/devices"))]);
+  const doctors = users.filter((u) => u.role === "doctor");
+  const patients = users.filter((u) => u.role === "patient");
 
   // UserOut has no doctor_id, so read each patient's detail. A failed read leaves the select on "Choose doctor...".
-  const patientIds = (users.data ?? []).filter((u) => u.role === "patient").map((u) => u.id);
-  const details = useQueries({
-    queries: patientIds.map((id) => ({
-      queryKey: ["admin-patient", id],
-      retry: false,
-      queryFn: () => unwrap(api.GET("/api/patients/{patient_id}", { params: { path: { patient_id: id } } })),
-    })),
-  });
-  const doctorOf = new Map(patientIds.map((id, i) => [id, details[i]?.data?.doctor_id ?? null]));
-
-  const err = users.error ?? devices.error;
-  if (err) return <ErrorNote error={err} retry={() => { users.refetch(); devices.refetch(); }} />;
-  if (!users.data || !devices.data) return <Loading />;
-
-  const doctors = users.data.filter((u) => u.role === "doctor");
-  const patients = users.data.filter((u) => u.role === "patient");
-  const name = (id: number | null) => (id == null ? "Unassigned" : (users.data.find((u) => u.id === id)?.name ?? `#${id}`));
+  const api = await serverApi();
+  const doctorOf: Record<number, number | null> = {};
+  await Promise.all(
+    patients.map(async (p) => {
+      try {
+        const { data } = await api.GET("/api/patients/{patient_id}", { params: { path: { patient_id: p.id } } });
+        doctorOf[p.id] = data?.doctor_id ?? null;
+      } catch {
+        doctorOf[p.id] = null;
+      }
+    }),
+  );
+  const name = (id: number | null) => (id == null ? "Unassigned" : (users.find((u) => u.id === id)?.name ?? `#${id}`));
 
   return (
     <div>
@@ -55,40 +35,10 @@ export default function AdminPage() {
           <h2 id="users-h" className="text-[1.5rem]">Users</h2>
           <CreateUserDialog doctors={doctors} />
         </div>
-        {users.data.length === 0 ? (
+        {users.length === 0 ? (
           <p className="text-muted-foreground">No users yet. Select Create user to add the first one.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent"><TableHead className={H}>Name</TableHead><TableHead className={H}>Email</TableHead><TableHead className={H}>Role</TableHead><TableHead className={H}>Assign doctor</TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.data.map((u) => (
-                  <TableRow key={u.id} className="h-11 hover:bg-muted/50">
-                    <TableCell className="px-3 font-medium">{u.name}</TableCell>
-                    <TableCell className="px-3">{u.email}</TableCell>
-                    <TableCell className="px-3"><span className="capitalize text-muted-foreground">{u.role}</span></TableCell>
-                    <TableCell className="px-3">
-                      {u.role === "patient" && (
-                        <NativeSelect
-                          aria-label={`Doctor for ${u.name}`}
-                          className="w-44"
-                          key={`${u.id}-${doctorOf.get(u.id) ?? ""}`}
-                          defaultValue={doctorOf.get(u.id) ?? ""}
-                          disabled={assign.isPending || doctors.length === 0}
-                          onChange={(e) => e.target.value && assign.mutate({ patient_id: u.id, doctor_id: Number(e.target.value) })}
-                        >
-                          <option value="">Choose doctor...</option>
-                          {doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </NativeSelect>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <UsersTable users={users} doctors={doctors} doctorOf={doctorOf} />
         )}
       </section>
 
@@ -97,14 +47,14 @@ export default function AdminPage() {
           <h2 id="dev-h" className="text-[1.5rem]">Devices</h2>
           <RegisterDeviceDialog patients={patients} />
         </div>
-        {devices.data.length === 0 ? (
+        {devices.length === 0 ? (
           <p className="text-muted-foreground">No devices registered yet. Select Register device to add a wristband.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="hover:bg-transparent"><TableHead className={H}>Device id</TableHead><TableHead className={H}>Patient</TableHead></TableRow></TableHeader>
               <TableBody>
-                {devices.data.map((d) => (
+                {devices.map((d) => (
                   <TableRow key={d.device_id} className="h-11 hover:bg-muted/50">
                     <TableCell className="px-3 font-mono">{d.device_id}</TableCell>
                     <TableCell className="px-3">{name(d.patient_id)}</TableCell>

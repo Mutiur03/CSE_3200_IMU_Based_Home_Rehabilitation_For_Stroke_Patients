@@ -1,4 +1,3 @@
-"use client";
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
@@ -12,38 +11,32 @@ import { ImprovementCard } from "./improvement";
 import { MarkingTab } from "./marking-tab";
 import { MessagesTab } from "./messages-tab";
 import { PlanTab } from "./plan-tab";
-import { useAssessments, usePatient, useProgress, useSessions } from "./queries";
-import { Empty, ErrorBox, Loading } from "./states";
+import type { Schemas } from "@/lib/api";
+import { Empty } from "./states";
 import { TrendCharts } from "./trend-charts";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-4 text-[1.5rem] leading-tight">{children}</h2>;
 }
 
-function Overview({ id }: { id: number }) {
-  const p = useProgress(id);
-  if (p.isPending) return <Loading />;
-  if (p.isError) return <ErrorBox error={p.error} retry={() => p.refetch()} />;
+function Overview({ progress }: { progress: Schemas["Progress"] }) {
   return (
     <div className="space-y-14">
-      <ImprovementCard imp={p.data.improvement} />
+      <ImprovementCard imp={progress.improvement} />
       <section>
         <SectionTitle>Per-session trends</SectionTitle>
-        <TrendCharts sessions={p.data.sessions} assessments={p.data.assessments} />
+        <TrendCharts sessions={progress.sessions} assessments={progress.assessments} />
       </section>
       <section>
         <SectionTitle>Your marks, for comparison with the index</SectionTitle>
-        <AssessmentTable items={p.data.assessments} />
+        <AssessmentTable items={progress.assessments} />
       </section>
     </div>
   );
 }
 
-function Sessions({ id }: { id: number }) {
-  const q = useSessions(id);
-  if (q.isPending) return <Loading />;
-  if (q.isError) return <ErrorBox error={q.error} retry={() => q.refetch()} />;
-  if (q.data.length === 0) return <Empty>No sessions recorded yet. They appear here once the patient finishes a game session.</Empty>;
+function Sessions({ sessions }: { sessions: Schemas["SessionOut"][] }) {
+  if (sessions.length === 0) return <Empty>No sessions recorded yet. They appear here once the patient finishes a game session.</Empty>;
   return (
     <ScrollFade>
       <Table>
@@ -60,7 +53,7 @@ function Sessions({ id }: { id: number }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {[...q.data]
+          {[...sessions]
             .sort((a, b) => b.started_at.localeCompare(a.started_at))
             .map((s) => (
               <TableRow key={s.id}>
@@ -83,12 +76,21 @@ function Sessions({ id }: { id: number }) {
   );
 }
 
-export function PatientView({ id }: { id: number }) {
-  const p = usePatient(id);
-  useAssessments(id); // warm cache for the marking tab
-  if (p.isPending) return <Loading rows={3} />;
-  if (p.isError) return <ErrorBox error={p.error} retry={() => p.refetch()} />;
-  const d = p.data;
+export function PatientView({
+  id,
+  d,
+  progress,
+  sessions,
+  assessments,
+  messages,
+}: {
+  id: number;
+  d: Schemas["PatientDetail"];
+  progress: Schemas["Progress"];
+  sessions: Schemas["SessionOut"][];
+  assessments: Schemas["AssessmentOut"][];
+  messages: Schemas["MessageOut"][];
+}) {
   const meta: [string, string][] = [
     ["Email", d.email],
     ["Device", d.device_id ?? "None"],
@@ -151,19 +153,19 @@ export function PatientView({ id }: { id: number }) {
           </TabsList>
         </ScrollFade>
         <TabsContent value="overview">
-          <Overview id={id} />
+          <Overview progress={progress} />
         </TabsContent>
         <TabsContent value="sessions">
-          <Sessions id={id} />
+          <Sessions sessions={sessions} />
         </TabsContent>
         <TabsContent value="marking">
-          <MarkingTab id={id} />
+          <MarkingTab id={id} assessments={assessments} />
         </TabsContent>
         <TabsContent value="plan">
           <PlanTab key={d.plan?.updated_at ?? "none"} id={id} plan={d.plan} rule={d.alert_rule} />
         </TabsContent>
         <TabsContent value="messages">
-          <MessagesTab id={id} />
+          <MessagesTab id={id} messages={messages} />
         </TabsContent>
       </Tabs>
     </div>

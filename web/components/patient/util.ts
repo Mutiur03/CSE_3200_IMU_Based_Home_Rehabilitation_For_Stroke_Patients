@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import { api, unwrap, type Schemas } from "@/lib/api";
+import type { Schemas } from "@/lib/api";
 
 export type Session = Schemas["SessionOut"];
 
@@ -12,12 +11,4 @@ export function weekStart(now = new Date()) {
   const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return d;
-}
-
-export function useSessions(patientId: number) {
-  return useQuery({
-    queryKey: ["sessions", patientId],
-    queryFn: () => unwrap(api.GET("/api/patients/{patient_id}/sessions", { params: { path: { patient_id: patientId } } })),
-    enabled: patientId > 0,
-  });
 }

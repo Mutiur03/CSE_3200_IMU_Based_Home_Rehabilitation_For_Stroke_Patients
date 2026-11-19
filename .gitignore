@@ -33,3 +33,7 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+
+.godot-tools/
+server/web/
+.pgdata/

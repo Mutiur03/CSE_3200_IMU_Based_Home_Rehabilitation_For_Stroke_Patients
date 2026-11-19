@@ -1,6 +1,7 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ type Form = z.infer<typeof schema>;
 
 export function CreateUserDialog({ doctors }: { doctors: User[] }) {
   const [open, setOpen] = useState(false);
-  const qc = useQueryClient();
+  const router = useRouter();
   const { register, handleSubmit, reset, control, setError, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { role: "patient", name: "", email: "", password: "", doctor_id: "", affected_side: "", onset_date: "" },
@@ -50,7 +51,7 @@ export function CreateUserDialog({ doctors }: { doctors: User[] }) {
       ),
     onSuccess: (u) => {
       toast.success(`Created ${u.name}`);
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      router.refresh();
       reset();
       setOpen(false);
     },

@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { api, unwrap, type Role, type User } from "./api";
 
-export const HOME: Record<Role, string> = { patient: "/patient", doctor: "/doctor", admin: "/admin" };
+import { HOME } from "./home";
+
+export { HOME };
 
 /** Current user, or null when not logged in (401). */
 export function useMe() {
