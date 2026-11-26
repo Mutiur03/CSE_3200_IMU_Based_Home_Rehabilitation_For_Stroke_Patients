@@ -53,7 +53,7 @@ export interface paths {
         put?: never;
         /**
          * Rep Done
-         * @description Buzz only, no scoring or adaptation (used by the load cell game).
+         * @description Buzz only, no scoring or adaptation (older load cell game builds).
          */
         post: operations["rep_done_api_rep_done__device_id__post"];
         delete?: never;
@@ -73,7 +73,7 @@ export interface paths {
         put?: never;
         /**
          * Tare Load
-         * @description Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded.
+         * @description Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded. The game calls this as the patient.
          */
         post: operations["tare_load_api_tare_load__device_id__post"];
         delete?: never;
@@ -337,6 +337,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/patients/{patient_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Clinical Report
+         * @description Plain-language performance report (no raw values). Same content as report.docx.
+         */
+        get: operations["clinical_report_api_patients__patient_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/patients/{patient_id}/report.docx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clinical Report Docx */
+        get: operations["clinical_report_docx_api_patients__patient_id__report_docx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/patients/{patient_id}/progress": {
         parameters: {
             query?: never;
@@ -545,6 +582,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Methods
+         * @description How each measure is produced, in plain words (doctor reference page and the Word report appendix).
+         */
+        get: operations["methods_api_methods_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/patients/{patient_id}/reps.csv": {
         parameters: {
             query?: never;
@@ -653,6 +710,36 @@ export interface components {
             /** Doctor Id */
             doctor_id: number;
         };
+        /**
+         * ClinicalReport
+         * @description Plain-language performance report (report.py). Same content as the Word file.
+         */
+        ClinicalReport: {
+            /** Patient Id */
+            patient_id: number;
+            /** Name */
+            name: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Period */
+            period: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "improving" | "stable" | "declining" | "insufficient";
+            /** Headline */
+            headline: string;
+            /** Sections */
+            sections: components["schemas"]["ReportSection"][];
+            /** Sessions */
+            sessions: components["schemas"]["SessionLine"][];
+            /** Caveat */
+            caveat: string;
+        };
         /** DeviceOut */
         DeviceOut: {
             /** Device Id */
@@ -753,6 +840,13 @@ export interface components {
             /** Read At */
             read_at: string | null;
         };
+        /** MethodItem */
+        MethodItem: {
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+        };
         /** MetricChange */
         MetricChange: {
             /**
@@ -785,6 +879,14 @@ export interface components {
             improvement_index: number | null;
             /** Flags */
             flags: components["schemas"]["PatientFlag"][];
+            /**
+             * Status
+             * @default insufficient
+             * @enum {string}
+             */
+            status: "improving" | "stable" | "declining" | "insufficient";
+            /** Quality Band */
+            quality_band?: ("high" | "moderate" | "low") | null;
             /** Email */
             email: string;
             /** Doctor Id */
@@ -826,6 +928,14 @@ export interface components {
             improvement_index: number | null;
             /** Flags */
             flags: components["schemas"]["PatientFlag"][];
+            /**
+             * Status
+             * @default insufficient
+             * @enum {string}
+             */
+            status: "improving" | "stable" | "declining" | "insufficient";
+            /** Quality Band */
+            quality_band?: ("high" | "moderate" | "low") | null;
         };
         /** PlanIn */
         PlanIn: {
@@ -900,6 +1010,33 @@ export interface components {
             /** Smoothness Score */
             smoothness_score: number | null;
         };
+        /** ReportPoint */
+        ReportPoint: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            /**
+             * Tone
+             * @default neutral
+             * @enum {string}
+             */
+            tone: "good" | "watch" | "alert" | "neutral";
+        };
+        /** ReportSection */
+        ReportSection: {
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Points
+             * @default []
+             */
+            points: components["schemas"]["ReportPoint"][];
+        };
         /** Rubric */
         Rubric: {
             /** Range */
@@ -948,6 +1085,25 @@ export interface components {
             mean_peak_load_kg?: number | null;
             /** Reps */
             reps: components["schemas"]["RepOut"][];
+        };
+        /** SessionLine */
+        SessionLine: {
+            /** Session Id */
+            session_id: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "movement" | "force" | "mixed" | "none";
+            /** Reps */
+            reps: number;
+            /** Result */
+            result: string;
         };
         /** SessionOut */
         SessionOut: {
@@ -1597,6 +1753,66 @@ export interface operations {
             };
         };
     };
+    clinical_report_api_patients__patient_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicalReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clinical_report_docx_api_patients__patient_id__report_docx_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     progress_api_patients__patient_id__progress_get: {
         parameters: {
             query?: never;
@@ -2061,6 +2277,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    methods_api_methods_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodItem"][];
                 };
             };
         };

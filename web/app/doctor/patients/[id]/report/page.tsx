@@ -11,9 +11,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   const p = { params: { path: { patient_id: id } } };
-  const [d, progress] = await Promise.all([
+  const [d, progress, report, methods] = await Promise.all([
     load((api) => api.GET("/api/patients/{patient_id}", p)),
     load((api) => api.GET("/api/patients/{patient_id}/progress", p)),
+    load((api) => api.GET("/api/patients/{patient_id}/report", p)),
+    load((api) => api.GET("/api/methods")),
   ]);
-  return <PatientReport id={id} d={d} progress={progress} />;
+  return <PatientReport id={id} d={d} progress={progress} report={report} methods={methods} />;
 }

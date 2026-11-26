@@ -6,5 +6,6 @@ psycopg[binary]>=3.2
 alembic
 argon2-cffi
 pyjwt
+python-docx  # Word performance report (report.py)
 httpx  # tests only (fastapi TestClient)
 pytest  # tests only

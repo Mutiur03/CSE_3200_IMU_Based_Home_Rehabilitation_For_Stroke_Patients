@@ -5,7 +5,10 @@ import { Wordmark } from "@/components/brand";
 import { useLogout } from "@/lib/auth";
 import type { User } from "@/lib/api";
 
-const NAV = [{ href: "/doctor", label: "Patients" }];
+const NAV = [
+  { href: "/doctor", label: "Patients" },
+  { href: "/doctor/methods", label: "How it's measured" },
+];
 
 export function DoctorShell({ me, children }: { me: User; children: React.ReactNode }) {
   const path = usePathname();
@@ -19,7 +22,8 @@ export function DoctorShell({ me, children }: { me: User; children: React.ReactN
         </Link>
         <nav aria-label="Doctor portal" className="flex flex-1 gap-1 lg:mt-10 lg:flex-none lg:flex-col">
           {NAV.map((n) => {
-            const active = path === n.href || path.startsWith(`${n.href}/`);
+            // "Patients" owns every /doctor page except the methods reference
+            const active = n.href === "/doctor" ? !path.startsWith("/doctor/methods") : path.startsWith(n.href);
             return (
               <Link
                 key={n.href}

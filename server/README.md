@@ -119,6 +119,15 @@ batches in a burst after a stall.
 
 `GET /api/session`: per-device summary (reps, mean quality, per-task means, difficulty, link health) plus every rep. The dashboard links to it.
 
+## Clinician report ([report.py](report.py))
+
+`GET /api/patients/{id}/report` (doctor/admin): plain-language performance report, no raw values. Each measure is described as about the same /
+slightly / clearly better or worse than the patient's first sessions (median of the first vs the latest up to 3 sessions; wording bands 5% and
+15%, not clinical thresholds). Quality bands reuse the level rules (high >= 90, moderate 60-89, low < 60). `GET /api/patients/{id}/report.docx`:
+the same report as a Word file (python-docx). `GET /api/methods`: how each measure is produced, generated from the live constants (doctor
+"How it's measured" page and the Word appendix). The patient list's `status` / `quality_band` use the same rules.
+Load cell levels record force only (`mode: "load"` on `POST /api/game_event`); IMU levels record movement only.
+
 ## ESP32 firmware ([IMU_stream.ino](../ESP_32/IMU_stream/IMU_stream.ino))
 
 `loop()` (core 1) only samples the IMU and queues batches; `txTask` (core 0) owns the WebSocket and sends. A Wi-Fi stall delays batches (up to 10 s

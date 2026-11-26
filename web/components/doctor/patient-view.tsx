@@ -5,9 +5,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AssessmentTable } from "./assessment-table";
+import { ClinicalSummary } from "./clinical-summary";
 import { ScrollFade } from "./scroll-fade";
-import { TD, TH, fmtDate, fmtDateTime, fmtNum } from "./format";
-import { ImprovementCard } from "./improvement";
+import { TD, TH, fmtDate, fmtDateTime } from "./format";
 import { MarkingTab } from "./marking-tab";
 import { MessagesTab } from "./messages-tab";
 import { PlanTab } from "./plan-tab";
@@ -15,61 +15,77 @@ import type { Schemas } from "@/lib/api";
 import { Empty } from "./states";
 import { TrendCharts } from "./trend-charts";
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-4 text-[1.5rem] leading-tight">{children}</h2>;
+function SectionTitle({ children, note }: { children: React.ReactNode; note?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <h2 className="text-[1.5rem] leading-tight">{children}</h2>
+      {note && <p className="text-[0.8125rem] text-muted-foreground">{note}</p>}
+    </div>
+  );
 }
 
-function Overview({ progress }: { progress: Schemas["Progress"] }) {
+const HOW = (
+  <Link href="/doctor/methods" className="underline underline-offset-4 hover:text-foreground">
+    How these are measured
+  </Link>
+);
+
+function Overview({ progress, report }: { progress: Schemas["Progress"]; report: Schemas["ClinicalReport"] }) {
   return (
     <div className="space-y-14">
-      <ImprovementCard imp={progress.improvement} />
+      <ClinicalSummary r={report} compact />
       <section>
-        <SectionTitle>Per-session trends</SectionTitle>
+        <SectionTitle note={HOW}>Session by session</SectionTitle>
         <TrendCharts sessions={progress.sessions} assessments={progress.assessments} />
       </section>
       <section>
-        <SectionTitle>Your marks, for comparison with the index</SectionTitle>
+        <SectionTitle>Your marks</SectionTitle>
         <AssessmentTable items={progress.assessments} />
       </section>
     </div>
   );
 }
 
-function Sessions({ sessions }: { sessions: Schemas["SessionOut"][] }) {
-  if (sessions.length === 0) return <Empty>No sessions recorded yet. They appear here once the patient finishes a game session.</Empty>;
+const KIND = { movement: "Movement", force: "Grip force", mixed: "Movement and grip", none: "No exercises" } as const;
+const RESULT_TONE = (r: string) => (r.startsWith("High") ? "moss" : r.startsWith("Low") ? "amber" : r.startsWith("No completed") ? "neutral" : "brass");
+
+function Sessions({ lines }: { lines: Schemas["SessionLine"][] }) {
+  if (lines.length === 0) return <Empty>No sessions recorded yet. They appear here once the patient finishes a game session.</Empty>;
   return (
     <ScrollFade>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className={TH}>Date</TableHead>
-            <TableHead className={`${TH} text-right`}>Reps</TableHead>
-            <TableHead className={`${TH} text-right`}>Mean quality</TableHead>
-            <TableHead className={`${TH} text-right`}>Dropped packets</TableHead>
-            <TableHead className={`${TH} text-right`}>Sample rate (Hz)</TableHead>
+            <TableHead className={TH}>Exercise</TableHead>
+            <TableHead className={`${TH} text-right`}>Repetitions</TableHead>
+            <TableHead className={TH}>Result</TableHead>
             <TableHead className={TH}>
               <span className="sr-only">Detail</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {[...sessions]
-            .sort((a, b) => b.started_at.localeCompare(a.started_at))
-            .map((s) => (
-              <TableRow key={s.id}>
+          {lines.map((s) => {
+            return (
+              <TableRow key={s.session_id}>
                 <TableCell className={TD}>{fmtDateTime(s.started_at)}</TableCell>
-                <TableCell className={`${TD} text-right`}>{s.n_reps ?? "n/a"}</TableCell>
-                <TableCell className={`${TD} text-right`}>{fmtNum(s.mean_quality)}</TableCell>
-                <TableCell className={`${TD} text-right`}>{s.dropped_packets ?? "n/a"}</TableCell>
-                <TableCell className={`${TD} text-right`}>{fmtNum(s.sample_rate_hz)}</TableCell>
+                <TableCell className={TD}>{KIND[s.kind]}</TableCell>
+                <TableCell className={`${TD} text-right`}>{s.reps}</TableCell>
                 <TableCell className={TD}>
-                  <Link href={`/doctor/sessions/${s.id}`} className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
-                    Reps and replay
-                    <span className="sr-only"> for {fmtDateTime(s.started_at)}</span>
-                  </Link>
+                  <StatusPill tone={RESULT_TONE(s.result)}>{s.result}</StatusPill>
+                </TableCell>
+                <TableCell className={TD}>
+                  {s.kind !== "none" && (
+                    <Link href={`/doctor/sessions/${s.session_id}`} className="inline-flex min-h-11 items-center underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">
+                      Details
+                      <span className="sr-only"> for {fmtDateTime(s.started_at)}</span>
+                    </Link>
+                  )}
                 </TableCell>
               </TableRow>
-            ))}
+            );
+          })}
         </TableBody>
       </Table>
     </ScrollFade>
@@ -80,25 +96,24 @@ export function PatientView({
   id,
   d,
   progress,
-  sessions,
+  report,
   assessments,
   messages,
 }: {
   id: number;
   d: Schemas["PatientDetail"];
   progress: Schemas["Progress"];
-  sessions: Schemas["SessionOut"][];
+  report: Schemas["ClinicalReport"];
   assessments: Schemas["AssessmentOut"][];
   messages: Schemas["MessageOut"][];
 }) {
   const meta: [string, string][] = [
-    ["Email", d.email],
-    ["Device", d.device_id ?? "None"],
-    ["Affected side", d.affected_side ?? "Not recorded"],
+    ["Affected side", d.affected_side ? d.affected_side[0].toUpperCase() + d.affected_side.slice(1) : "Not recorded"],
     ["Onset", d.onset_date ? fmtDate(d.onset_date, true) : "Not recorded"],
     ["Sessions", String(d.sessions_total)],
-    ["Mean movement quality score", fmtNum(d.mean_quality)],
     ["Last session", fmtDateTime(d.last_session_at)],
+    ["Device", d.device_id ?? "None"],
+    ["Email", d.email],
   ];
   return (
     <div>
@@ -112,9 +127,14 @@ export function PatientView({
         title={d.name}
         className="mb-6"
         actions={
-          <Link href={`/doctor/patients/${id}/report`} className={buttonVariants({ variant: "outline", size: "lg" })}>
-            Open report
-          </Link>
+          <>
+            <Link href={`/doctor/patients/${id}/report`} className={buttonVariants({ variant: "outline", size: "lg" })}>
+              Open report
+            </Link>
+            <a href={`/api/patients/${id}/report.docx`} download className={buttonVariants({ size: "lg" })}>
+              Download Word report
+            </a>
+          </>
         }
         description={
           d.notes || d.flags.length > 0 ? (
@@ -133,7 +153,7 @@ export function PatientView({
           ) : undefined
         }
       />
-      <dl className="mb-10 grid grid-cols-2 gap-x-8 gap-y-4 text-sm sm:grid-cols-3 lg:grid-cols-4">
+      <dl className="mb-10 grid grid-cols-2 gap-x-8 gap-y-4 text-sm sm:grid-cols-3 lg:grid-cols-6">
         {meta.map(([k, v]) => (
           <div key={k} className="min-w-0">
             <dt className="text-[0.8125rem] text-muted-foreground">{k}</dt>
@@ -153,10 +173,10 @@ export function PatientView({
           </TabsList>
         </ScrollFade>
         <TabsContent value="overview">
-          <Overview progress={progress} />
+          <Overview progress={progress} report={report} />
         </TabsContent>
         <TabsContent value="sessions">
-          <Sessions sessions={sessions} />
+          <Sessions lines={report.sessions} />
         </TabsContent>
         <TabsContent value="marking">
           <MarkingTab id={id} assessments={assessments} />

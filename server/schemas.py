@@ -188,6 +188,9 @@ class PatientSummary(BaseModel):
     mean_quality: float | None
     improvement_index: float | None
     flags: list[PatientFlag]
+    # in words, same rules as the clinical report (report.py): no raw values needed in the patient list
+    status: Literal["improving", "stable", "declining", "insufficient"] = "insufficient"
+    quality_band: Literal["high", "moderate", "low"] | None = None
 
 
 class PatientDetail(PatientSummary):
@@ -198,6 +201,45 @@ class PatientDetail(PatientSummary):
     notes: str | None
     plan: PlanOut | None
     alert_rule: AlertRuleIO | None
+
+
+class ReportPoint(BaseModel):
+    label: str
+    text: str
+    tone: Literal["good", "watch", "alert", "neutral"] = "neutral"
+
+
+class ReportSection(BaseModel):
+    key: str
+    title: str
+    summary: str
+    points: list[ReportPoint] = []
+
+
+class SessionLine(BaseModel):
+    session_id: int
+    started_at: datetime
+    kind: Literal["movement", "force", "mixed", "none"]
+    reps: int
+    result: str  # in words, e.g. "High quality" or "Peak force about 2.4 kg"
+
+
+class ClinicalReport(BaseModel):
+    """Plain-language performance report (report.py). Same content as the Word file."""
+    patient_id: int
+    name: str
+    generated_at: datetime
+    period: str
+    status: Literal["improving", "stable", "declining", "insufficient"]
+    headline: str
+    sections: list[ReportSection]
+    sessions: list[SessionLine]
+    caveat: str
+
+
+class MethodItem(BaseModel):
+    title: str
+    text: str
 
 
 class Progress(BaseModel):

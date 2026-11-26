@@ -27,7 +27,7 @@ export function TrendChart({ title, unit, rows, series: all }: { title: string; 
             <Tooltip cursor={{ stroke: "var(--border)" }} contentStyle={{ background: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "none", fontSize: 14 }} />
             {series.length > 1 && <Legend iconType="plainline" wrapperStyle={{ fontSize: 14 }} />}
             {series.map((s) => (
-              <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3, strokeWidth: 0, fill: s.color }} activeDot={{ r: 4 }} connectNulls isAnimationActive={false} />
+              <Line key={s.key} type="linear" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3, strokeWidth: 0, fill: s.color }} activeDot={{ r: 4 }} connectNulls isAnimationActive={false} />
             ))}
           </LineChart>
         </ResponsiveContainer>

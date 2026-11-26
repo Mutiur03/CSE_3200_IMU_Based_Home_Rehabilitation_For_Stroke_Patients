@@ -3,14 +3,16 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as Db
 
+import report
 from db import get_db
 from improvement import WINDOW, compute_improvement
 from models import AlertRule, Assessment, Device, Patient, Plan, Rep, Session, User
-from schemas import (AlertRuleIO, AssessmentOut, PatientDetail, PatientFlag, PatientSummary, PlanOut, Progress, SessionOut,
-                     UserOut)
+from schemas import (AlertRuleIO, AssessmentOut, ClinicalReport, PatientDetail, PatientFlag, PatientSummary, PlanOut, Progress,
+                     SessionOut, UserOut)
 from security import patient_access, require_role
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
@@ -64,7 +66,8 @@ def _summaries(s: Db, pids: list[int]) -> dict[int, tuple[PatientSummary, list[S
         imp = compute_improvement([x.model_dump() for x in ss])
         out[pid] = (PatientSummary(id=pid, name=users[pid].name, device_id=devs.get(pid), last_session_at=ss[-1].started_at if ss else None,
                                    sessions_total=len(ss), mean_quality=round(q, 1) if q is not None else None, improvement_index=imp.index,
-                                   flags=_flags(ss, rules.get(pid), users[pid].created_at)), ss)
+                                   flags=_flags(ss, rules.get(pid), users[pid].created_at), status=report.status_of(ss)[0],
+                                   quality_band=report.band(q)), ss)
     return out
 
 
@@ -97,6 +100,40 @@ def detail(patient_id: int, _: UserOut = Depends(patient_access), s: Db = Depend
         plan=PlanOut(patient_id=patient_id, levels_allowed=list(plan.levels_allowed), reps_per_level=plan.reps_per_level,
                      sessions_per_week=plan.sessions_per_week, adapt_on=plan.adapt_on, updated_at=plan.updated_at) if plan else None,
         alert_rule=AlertRuleIO(max_days_without_session=rule.max_days_without_session, quality_drop_pct=rule.quality_drop_pct) if rule else None)
+
+
+def _report(s: Db, patient_id: int):
+    p = _patient_or_404(s, patient_id)
+    summ, ss = _summaries(s, [patient_id])[patient_id]
+    plan = s.get(Plan, patient_id)
+    plan_out = PlanOut(patient_id=patient_id, levels_allowed=list(plan.levels_allowed), reps_per_level=plan.reps_per_level,
+                       sessions_per_week=plan.sessions_per_week, adapt_on=plan.adapt_on, updated_at=plan.updated_at) if plan else None
+    rows = s.scalars(select(Assessment).where(Assessment.patient_id == patient_id))
+    ass = [AssessmentOut(id=a.id, patient_id=a.patient_id, doctor_id=a.doctor_id, assessed_on=a.assessed_on, rubric=a.rubric,
+                         scale_name=a.scale_name, scale_score=a.scale_score, comment=a.comment, created_at=a.created_at) for a in rows]
+    r = report.build(patient_id=patient_id, name=summ.name, sessions=ss, assessments=ass, plan=plan_out, flags=summ.flags)
+    details = [("Affected side", (p.affected_side or "not recorded").capitalize()),
+               ("Onset", p.onset_date.strftime("%d %b %Y") if p.onset_date else "Not recorded"),
+               ("Plan", f"Levels {', '.join(map(str, sorted(plan.levels_allowed)))}; {plan.reps_per_level} repetitions per level; "
+                        f"{plan.sessions_per_week} sessions a week" if plan else "No plan set")]
+    return r, details
+
+
+@router.get("/{patient_id}/report", response_model=ClinicalReport)
+def clinical_report(patient_id: int, _: UserOut = Depends(require_role("doctor", "admin")), __: UserOut = Depends(patient_access),
+                    s: Db = Depends(get_db)):
+    """Plain-language performance report (no raw values). Same content as report.docx."""
+    return _report(s, patient_id)[0]
+
+
+@router.get("/{patient_id}/report.docx", response_class=Response)
+def clinical_report_docx(patient_id: int, _: UserOut = Depends(require_role("doctor", "admin")), __: UserOut = Depends(patient_access),
+                         s: Db = Depends(get_db)):
+    r, details = _report(s, patient_id)
+    fname = f"report_{r.name.replace(' ', '_')}_{r.generated_at:%Y-%m-%d}.docx"
+    fname = "".join(c for c in fname if c.isalnum() or c in "._-")
+    return Response(report.to_docx(r, details), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @router.get("/{patient_id}/progress", response_model=Progress)

@@ -61,7 +61,7 @@
   "/api/rep_done/{device_id}": {
    "post": {
     "summary": "Rep Done",
-    "description": "Buzz only, no scoring or adaptation (used by the load cell game).",
+    "description": "Buzz only, no scoring or adaptation (older load cell game builds).",
     "operationId": "rep_done_api_rep_done__device_id__post",
     "parameters": [
      {
@@ -99,7 +99,7 @@
   "/api/tare_load/{device_id}": {
    "post": {
     "summary": "Tare Load",
-    "description": "Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded.",
+    "description": "Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded. The game calls this as the patient.",
     "operationId": "tare_load_api_tare_load__device_id__post",
     "parameters": [
      {
@@ -621,6 +621,84 @@
         }
        }
       }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/report": {
+   "get": {
+    "tags": [
+     "patients"
+    ],
+    "summary": "Clinical Report",
+    "description": "Plain-language performance report (no raw values). Same content as report.docx.",
+    "operationId": "clinical_report_api_patients__patient_id__report_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ClinicalReport"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{patient_id}/report.docx": {
+   "get": {
+    "tags": [
+     "patients"
+    ],
+    "summary": "Clinical Report Docx",
+    "operationId": "clinical_report_docx_api_patients__patient_id__report_docx_get",
+    "parameters": [
+     {
+      "name": "patient_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Patient Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response"
      },
      "422": {
       "description": "Validation Error",
@@ -1275,6 +1353,32 @@
     }
    }
   },
+  "/api/methods": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Methods",
+    "description": "How each measure is produced, in plain words (doctor reference page and the Word report appendix).",
+    "operationId": "methods_api_methods_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MethodItem"
+         },
+         "type": "array",
+         "title": "Response Methods Api Methods Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/patients/{patient_id}/reps.csv": {
    "get": {
     "tags": [
@@ -1520,6 +1624,73 @@
      "doctor_id"
     ],
     "title": "AssignIn"
+   },
+   "ClinicalReport": {
+    "properties": {
+     "patient_id": {
+      "type": "integer",
+      "title": "Patient Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Generated At"
+     },
+     "period": {
+      "type": "string",
+      "title": "Period"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "improving",
+       "stable",
+       "declining",
+       "insufficient"
+      ],
+      "title": "Status"
+     },
+     "headline": {
+      "type": "string",
+      "title": "Headline"
+     },
+     "sections": {
+      "items": {
+       "$ref": "#/components/schemas/ReportSection"
+      },
+      "type": "array",
+      "title": "Sections"
+     },
+     "sessions": {
+      "items": {
+       "$ref": "#/components/schemas/SessionLine"
+      },
+      "type": "array",
+      "title": "Sessions"
+     },
+     "caveat": {
+      "type": "string",
+      "title": "Caveat"
+     }
+    },
+    "type": "object",
+    "required": [
+     "patient_id",
+     "name",
+     "generated_at",
+     "period",
+     "status",
+     "headline",
+     "sections",
+     "sessions",
+     "caveat"
+    ],
+    "title": "ClinicalReport",
+    "description": "Plain-language performance report (report.py). Same content as the Word file."
    },
    "DeviceOut": {
     "properties": {
@@ -1805,6 +1976,24 @@
     ],
     "title": "MessageOut"
    },
+   "MethodItem": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "text"
+    ],
+    "title": "MethodItem"
+   },
    "MetricChange": {
     "properties": {
      "name": {
@@ -1905,6 +2094,33 @@
       },
       "type": "array",
       "title": "Flags"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "improving",
+       "stable",
+       "declining",
+       "insufficient"
+      ],
+      "title": "Status",
+      "default": "insufficient"
+     },
+     "quality_band": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "high",
+         "moderate",
+         "low"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quality Band"
      },
      "email": {
       "type": "string",
@@ -2087,6 +2303,33 @@
       },
       "type": "array",
       "title": "Flags"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "improving",
+       "stable",
+       "declining",
+       "insufficient"
+      ],
+      "title": "Status",
+      "default": "insufficient"
+     },
+     "quality_band": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "high",
+         "moderate",
+         "low"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quality Band"
      }
     },
     "type": "object",
@@ -2359,6 +2602,66 @@
     ],
     "title": "RepOut"
    },
+   "ReportPoint": {
+    "properties": {
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "tone": {
+      "type": "string",
+      "enum": [
+       "good",
+       "watch",
+       "alert",
+       "neutral"
+      ],
+      "title": "Tone",
+      "default": "neutral"
+     }
+    },
+    "type": "object",
+    "required": [
+     "label",
+     "text"
+    ],
+    "title": "ReportPoint"
+   },
+   "ReportSection": {
+    "properties": {
+     "key": {
+      "type": "string",
+      "title": "Key"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     },
+     "points": {
+      "items": {
+       "$ref": "#/components/schemas/ReportPoint"
+      },
+      "type": "array",
+      "title": "Points",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "key",
+     "title",
+     "summary"
+    ],
+    "title": "ReportSection"
+   },
    "Rubric": {
     "properties": {
      "range": {
@@ -2554,6 +2857,46 @@
      "reps"
     ],
     "title": "SessionDetail"
+   },
+   "SessionLine": {
+    "properties": {
+     "session_id": {
+      "type": "integer",
+      "title": "Session Id"
+     },
+     "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Started At"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "movement",
+       "force",
+       "mixed",
+       "none"
+      ],
+      "title": "Kind"
+     },
+     "reps": {
+      "type": "integer",
+      "title": "Reps"
+     },
+     "result": {
+      "type": "string",
+      "title": "Result"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_id",
+     "started_at",
+     "kind",
+     "reps",
+     "result"
+    ],
+    "title": "SessionLine"
    },
    "SessionOut": {
     "properties": {

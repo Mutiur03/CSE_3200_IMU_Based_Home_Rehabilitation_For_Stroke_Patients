@@ -11,10 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as Db
 
 import ingest
+import report
 from db import get_db
 from models import Patient, Rep, Session
 from orientation import Tilt
-from schemas import Trace, TracePoint, UserOut
+from schemas import MethodItem, Trace, TracePoint, UserOut
 from security import patient_access, require_role
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -82,6 +83,12 @@ def trace(session_id: int, user: UserOut = Depends(require_role("doctor", "admin
 def _safe(v):
     """Neutralize spreadsheet formula injection in text cells."""
     return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r") else v
+
+
+@router.get("/methods", response_model=list[MethodItem])
+def methods(_: UserOut = Depends(require_role("doctor", "admin"))):
+    """How each measure is produced, in plain words (doctor reference page and the Word report appendix)."""
+    return report.methods()
 
 
 @router.get("/patients/{patient_id}/reps.csv")

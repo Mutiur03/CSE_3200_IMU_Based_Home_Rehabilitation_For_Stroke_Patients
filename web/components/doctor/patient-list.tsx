@@ -10,9 +10,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Schemas } from "@/lib/api";
 import { Empty } from "./states";
 import { ScrollFade } from "./scroll-fade";
-import { TD, TH, fmtDateTime, fmtNum, fmtPct, fmtRelative, signTone } from "./format";
+import { TD, TH, fmtDateTime, fmtRelative } from "./format";
 
-type Sort = "name" | "last" | "quality" | "index";
+// Words, not raw values. Same rules as the clinical report (server report.py).
+const TREND = {
+  improving: { label: "Improving", tone: "moss" },
+  stable: { label: "Stable", tone: "neutral" },
+  declining: { label: "Declining", tone: "madder" },
+  insufficient: { label: "Not enough data", tone: "amber" },
+} as const;
+const BAND = { high: { label: "High", tone: "moss" }, moderate: { label: "Moderate", tone: "neutral" }, low: { label: "Low", tone: "amber" } } as const;
+const TREND_RANK = { improving: 3, stable: 2, declining: 1, insufficient: 0 };
+const BAND_RANK = { high: 3, moderate: 2, low: 1 };
+
+type Sort = "name" | "last" | "quality" | "trend";
 
 export function PatientList({ patients }: { patients: Schemas["PatientSummary"][] }) {
   const [flaggedOnly, setFlaggedOnly] = useState(false);
@@ -20,15 +31,14 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
 
   const rows = useMemo(() => {
     const list = patients.filter((p) => !flaggedOnly || p.flags.length > 0);
-    const num = (v: number | null | undefined) => v ?? -Infinity;
     return [...list].sort((a, b) =>
       sort === "name"
         ? a.name.localeCompare(b.name)
         : sort === "last"
           ? (b.last_session_at ?? "").localeCompare(a.last_session_at ?? "")
           : sort === "quality"
-            ? num(b.mean_quality) - num(a.mean_quality)
-            : num(b.improvement_index) - num(a.improvement_index),
+            ? (b.quality_band ? BAND_RANK[b.quality_band] : 0) - (a.quality_band ? BAND_RANK[a.quality_band] : 0)
+            : TREND_RANK[b.status ?? "insufficient"] - TREND_RANK[a.status ?? "insufficient"],
     );
   }, [patients, flaggedOnly, sort]);
 
@@ -39,7 +49,7 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
 
   return (
     <section>
-      <PageHeader title="Patients" description="Everyone assigned to you, with their latest movement quality score and how it has changed from their own baseline." />
+      <PageHeader title="Patients" description="Everyone assigned to you, with their movement quality and whether it is improving compared with their own first sessions." />
 
       <div className="mb-10 grid grid-cols-3 gap-x-6">
           <Stat label="Patients" value={all.length} />
@@ -64,8 +74,8 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
           >
             <option value="name">Name</option>
             <option value="last">Last session</option>
-            <option value="quality">Mean quality</option>
-            <option value="index">Improvement index</option>
+            <option value="quality">Quality</option>
+            <option value="trend">Trend</option>
           </select>
         </div>
       </div>
@@ -81,8 +91,8 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
                 <TableHead className={`${TH} hidden md:table-cell`}>Device</TableHead>
                 <TableHead className={`${TH} hidden md:table-cell`}>Last session</TableHead>
                 <TableHead className={`${TH} hidden text-right md:table-cell`}>Sessions</TableHead>
-                <TableHead className={`${TH} hidden text-right md:table-cell`}>Mean quality</TableHead>
-                <TableHead className={`${TH} text-right`}>Improvement index</TableHead>
+                <TableHead className={`${TH} hidden md:table-cell`}>Quality</TableHead>
+                <TableHead className={TH}>Trend</TableHead>
                 <TableHead className={`${TH} hidden md:table-cell`}>Flags</TableHead>
               </TableRow>
             </TableHeader>
@@ -97,9 +107,7 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
                       {p.name}
                     </Link>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-sm md:hidden">
-                      <span className="text-muted-foreground">
-                        Quality <span className="tnum text-foreground">{fmtNum(p.mean_quality)}</span>
-                      </span>
+                      {p.quality_band && <span className="text-muted-foreground">Quality {BAND[p.quality_band].label.toLowerCase()}</span>}
                       {p.flags.map((f) => (
                         <StatusPill key={f.kind} tone="madder">
                           {f.message}
@@ -112,11 +120,11 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
                     <span title={fmtDateTime(p.last_session_at)}>{fmtRelative(p.last_session_at)}</span>
                   </TableCell>
                   <TableCell className={`${TD} hidden text-right md:table-cell`}>{p.sessions_total}</TableCell>
-                  <TableCell className={`${TD} hidden text-right md:table-cell`}>
-                    <span className="font-display text-xl">{fmtNum(p.mean_quality)}</span>
+                  <TableCell className={`${TD} hidden md:table-cell`}>
+                    {p.quality_band ? <StatusPill tone={BAND[p.quality_band].tone}>{BAND[p.quality_band].label}</StatusPill> : <span className="text-muted-foreground">Not scored</span>}
                   </TableCell>
-                  <TableCell className={`${TD} text-right`}>
-                    <span className={`font-display text-xl ${signTone(p.improvement_index)}`}>{fmtPct(p.improvement_index)}</span>
+                  <TableCell className={TD}>
+                    <StatusPill tone={TREND[p.status ?? "insufficient"].tone}>{TREND[p.status ?? "insufficient"].label}</StatusPill>
                   </TableCell>
                   <TableCell className={`${TD} hidden md:table-cell`}>
                     <div className="flex gap-1.5">
@@ -137,7 +145,7 @@ export function PatientList({ patients }: { patients: Schemas["PatientSummary"][
           </Table>
         </ScrollFade>
       )}
-      <p className="mt-6 max-w-[62ch] text-[0.8125rem] text-muted-foreground">Improvement index is descriptive and relative to each patient&apos;s own baseline. It is not clinically validated.</p>
+      <p className="mt-6 max-w-[62ch] text-[0.8125rem] text-muted-foreground">Quality and trend are descriptive and relative to each patient&apos;s own sessions, not clinically validated. See How it&apos;s measured.</p>
     </section>
   );
 }
