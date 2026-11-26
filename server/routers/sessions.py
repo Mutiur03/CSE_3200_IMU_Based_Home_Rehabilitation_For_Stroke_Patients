@@ -14,12 +14,13 @@ from security import patient_access, require_role
 
 router = APIRouter(prefix="/api", tags=["sessions"])
 
-_MEANS = (func.avg(m.Rep.duration_s), func.avg(m.Rep.roll_range_deg), func.avg(m.Rep.pitch_range_deg), cast(func.avg(m.Rep.speed_peaks), Float))
+_MEANS = (func.avg(m.Rep.duration_s), func.avg(m.Rep.roll_range_deg), func.avg(m.Rep.pitch_range_deg), cast(func.avg(m.Rep.speed_peaks), Float),
+          func.avg(m.Rep.peak_load_kg))
 
 
-def _out(sess: m.Session, means=(None,) * 4) -> SessionOut:
+def _out(sess: m.Session, means=(None,) * 5) -> SessionOut:
     return SessionOut.model_validate(sess, from_attributes=True).model_copy(update=dict(zip(
-        ("mean_duration_s", "mean_roll_range_deg", "mean_pitch_range_deg", "mean_speed_peaks"), means)))
+        ("mean_duration_s", "mean_roll_range_deg", "mean_pitch_range_deg", "mean_speed_peaks", "mean_peak_load_kg"), means)))
 
 
 @router.post("/sessions/start", response_model=SessionOut, status_code=201)

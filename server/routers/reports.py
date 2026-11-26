@@ -88,9 +88,9 @@ def _safe(v):
 def reps_csv(patient_id: int, _: UserOut = Depends(patient_access), s: Db = Depends(get_db)):
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(["session_id", "ts", "level", "task", "rep", "duration_s", "pitch_range_deg", "roll_range_deg", "peak_speed_dps", "speed_peaks", "quality"])
+    w.writerow(["session_id", "ts", "level", "task", "rep", "duration_s", "pitch_range_deg", "roll_range_deg", "peak_speed_dps", "speed_peaks", "quality", "peak_load_kg"])
     q = select(Rep).join(Session, Session.id == Rep.session_id).where(Session.patient_id == patient_id).order_by(Session.started_at, Session.id, Rep.id)
     for r in s.scalars(q):
         w.writerow([_safe(v) for v in (r.session_id, r.ts.isoformat(), r.level, r.task, r.rep, r.duration_s, r.pitch_range_deg, r.roll_range_deg,
-                                       r.peak_speed_dps, r.speed_peaks, r.quality)])
+                                       r.peak_speed_dps, r.speed_peaks, r.quality, r.peak_load_kg)])
     return Response(out.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="patient_{patient_id}_reps.csv"'})

@@ -75,6 +75,7 @@ class RepOut(BaseModel):
     roll_range_deg: float | None
     peak_speed_dps: float | None
     speed_peaks: int | None
+    peak_load_kg: float | None = None  # max load cell reading during the rep (counts / LOAD_SCALE); null without a load cell
     quality: float | None  # null for a task's first rep (no reference)
     timing_score: float | None
     smoothness_score: float | None
@@ -95,6 +96,7 @@ class SessionOut(BaseModel):
     mean_roll_range_deg: float | None = None
     mean_pitch_range_deg: float | None = None
     mean_speed_peaks: float | None = None
+    mean_peak_load_kg: float | None = None  # mean over reps of each rep's peak load
 
 
 class SessionDetail(SessionOut):

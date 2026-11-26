@@ -12,6 +12,7 @@ import socket
 import time
 from collections import deque
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from starlette.requests import HTTPConnection
@@ -38,7 +39,7 @@ REP_AXIS = os.environ.get("IMU_REP_AXIS", "roll")  # roll = pronation/supination
 # Load cell (HX711 on the same ESP32): firmware sends tared raw counts as "load"; the game gets counts / LOAD_SCALE.
 # PLACEHOLDER 80000 counts per kg (typical 5 kg bar cell, NOT measured): replace with the CAL_FACTOR from a known weight (README).
 # Negative flips the sign.
-LOAD_SCALE = float(os.environ.get("LOAD_SCALE", "80000"))
+LOAD_SCALE = get_settings().load_scale  # env var or server/.env
 RATE_WINDOW = 200  # samples used to estimate sample rate
 
 # Godot game (imu-rehab-game/main.gd) listens on UDP 4242 for {"pitch", "roll", "trunk_lean"} in degrees.
@@ -122,6 +123,7 @@ class Device:
         self.last_rep = None
         self.clock = ClockMap()
         self.buf = deque(maxlen=6000)  # (wall_ms, pitch, roll, |gyro|) ~60 s at 100 Hz, to pair sensor data with game events
+        self.load_buf = deque(maxlen=1000)  # (wall_ms, load) one per batch (~10/s), ~100 s, for the peak load of a rep
         self.game_reps = []
         self.run = []  # reps of the level being played now
         self.level = 1  # game level (1-9) of the last reported rep
@@ -141,6 +143,7 @@ class Device:
             self.tilt = Tilt()
             self.reps = WristReps()
             self.clock = ClockMap()
+            self.load_buf.clear()  # wall times came from the old clock mapping
         elif self.last_seq is not None:
             self.dropped += batch.seq - self.last_seq - 1
         self.last_seq = batch.seq
@@ -152,6 +155,7 @@ class Device:
         if batch.load is not None:
             self.load_raw = batch.load
             self.load = (batch.load - self.load_offset) / LOAD_SCALE
+            self.load_buf.append((self.clock.wall(batch.samples[-1].timestamp), self.load))
         for s in batch.samples:
             pitch, roll = self.tilt.update(s.timestamp, s.accel.x, s.accel.y, s.accel.z, s.gyro.x, s.gyro.y)
             wall_ms = self.clock.wall(s.timestamp)
@@ -246,6 +250,25 @@ def _staff(conn: HTTPConnection):
 
 
 STAFF = [Depends(_staff)]
+
+
+def _device_for(conn: HTTPConnection, device_id: str) -> str:
+    """The game (patient login) acts only on the device bound to that patient, whatever id it sends (it hardcodes one).
+    Doctor/admin: the id in the URL. Lab mode: open."""
+    if db.SessionLocal is None:
+        return device_id
+    u = _cookie_user(conn)
+    if u is None:
+        raise HTTPException(401, "not logged in")
+    if u.role == "patient":
+        with db.SessionLocal() as s:
+            did = bindings.device_of(s, u.id)
+        if did is None:
+            raise HTTPException(409, "no device bound to this patient")
+        return did
+    if u.role not in ("doctor", "admin"):
+        raise HTTPException(403, "forbidden")
+    return device_id
 
 
 def map_level(target: int, level: int, allowed: list[int]) -> int:
@@ -350,9 +373,11 @@ class GameEvent(BaseModel):
     rep: int = Field(ge=0, le=100_000)  # repetition number within the level, as the game counts it
     reps_required: int = Field(default=3, ge=1, le=50)  # reps that finish a level
     duration_s: float = Field(gt=0, le=600)  # game-measured rep duration; window = the last duration_s before this event
+    mode: Literal["normal", "load"] = "normal"  # "load": load cell level. Stored (n_reps, peak force) but no IMU features/quality/adaptation
+    peak_load_kg: float | None = Field(default=None, ge=0, le=1000)  # game-measured peak force; else the server's own peak over the rep window
 
 
-_REP_COLS = ("level", "task", "rep", "duration_s", "pitch_range_deg", "roll_range_deg", "peak_speed_dps", "speed_peaks", "quality",
+_REP_COLS = ("level", "task", "rep", "duration_s", "pitch_range_deg", "roll_range_deg", "peak_speed_dps", "speed_peaks", "peak_load_kg", "quality",
              "timing_score", "smoothness_score", "level_quality", "next_level")
 
 
@@ -375,15 +400,25 @@ async def game_event(ev: GameEvent, request: Request):
     if dev is None:
         raise HTTPException(404, "unknown device")
     now = int(time.time() * 1000)
+    loads = [v for t, v in dev.load_buf if now - ev.duration_s * 1000 <= t <= now]
+    # Strict split: force is recorded only for load cell levels, IMU features only for IMU levels (even if both sensors are streaming).
+    peak = ev.peak_load_kg if ev.peak_load_kg is not None else (max(loads) if loads else None)  # None: no load cell data
+    base = {"game_rep": len(dev.game_reps) + 1, "level": ev.level, "task": ev.task, "rep": ev.rep, "duration_s": round(ev.duration_s, 2),
+            "peak_load_kg": round(peak, 3) if peak is not None and ev.mode == "load" else None}
+    if ev.mode == "load":
+        # Load cell levels have no IMU movement to score: keep the rep (count + force) and the buzz, skip quality and level adaptation.
+        rep = {**base, "pitch_range_deg": None, "roll_range_deg": None, "peak_speed_dps": None, "speed_peaks": None, "quality": None,
+               "timing_score": None, "smoothness_score": None, "level_quality": None, "next_level": None}
+        dev.game_log.write(json.dumps({"server_time_ms": now, "mode": "load", **rep}) + "\n")
+        if patient:
+            with db.SessionLocal() as s:
+                sess = bindings.ensure_session(s, patient.id, ev.device_id, str(dev.path))
+                s.add(m.Rep(session_id=sess.id, **{k: rep[k] for k in _REP_COLS}))
+                s.commit()
+        await buzz(dev)
+        return {"ok": True, **rep}
     win = [b for b in dev.buf if now - ev.duration_s * 1000 <= b[0] <= now]
-    rep = {
-        "game_rep": len(dev.game_reps) + 1,
-        "level": ev.level,
-        "task": ev.task,
-        "rep": ev.rep,
-        "duration_s": round(ev.duration_s, 2),
-        **window_features([b[1] for b in win], [b[2] for b in win], [b[3] for b in win]),
-    }
+    rep = {**base, **window_features([b[1] for b in win], [b[2] for b in win], [b[3] for b in win])}
     q = score(rep, dev.game_reps)
     rep.update(q or {"quality": None, "timing_score": None, "smoothness_score": None})
     dev.level = ev.level
@@ -419,20 +454,20 @@ async def buzz(dev: Device):
             dev.ws = None
 
 
-@router.post("/api/rep_done/{device_id}", dependencies=STAFF)
-async def rep_done(device_id: str):
-    """Buzz only, no scoring or adaptation (used by the load cell game)."""
-    dev = devices.get(device_id)
+@router.post("/api/rep_done/{device_id}")
+async def rep_done(device_id: str, request: Request):
+    """Buzz only, no scoring or adaptation (older load cell game builds)."""
+    dev = devices.get(_device_for(request, device_id))
     if dev is None:
         raise HTTPException(404, "unknown device")
     await buzz(dev)
     return {"ok": True}
 
 
-@router.post("/api/tare_load/{device_id}", dependencies=STAFF)
-def tare_load(device_id: str):
-    """Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded."""
-    dev = devices.get(device_id)
+@router.post("/api/tare_load/{device_id}")
+def tare_load(device_id: str, request: Request):
+    """Load cell zero: the current reading becomes 0 kg. Call with the cell unloaded. The game calls this as the patient."""
+    dev = devices.get(_device_for(request, device_id))
     if dev is None or dev.load_raw is None:
         raise HTTPException(404, "no load data from that device yet")
     dev.load_offset = dev.load_raw

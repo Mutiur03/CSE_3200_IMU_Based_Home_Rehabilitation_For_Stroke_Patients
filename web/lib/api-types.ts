@@ -691,6 +691,14 @@ export interface components {
             reps_required: number;
             /** Duration S */
             duration_s: number;
+            /**
+             * Mode
+             * @default normal
+             * @enum {string}
+             */
+            mode: "normal" | "load";
+            /** Peak Load Kg */
+            peak_load_kg?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -883,6 +891,8 @@ export interface components {
             peak_speed_dps: number | null;
             /** Speed Peaks */
             speed_peaks: number | null;
+            /** Peak Load Kg */
+            peak_load_kg?: number | null;
             /** Quality */
             quality: number | null;
             /** Timing Score */
@@ -934,6 +944,8 @@ export interface components {
             mean_pitch_range_deg?: number | null;
             /** Mean Speed Peaks */
             mean_speed_peaks?: number | null;
+            /** Mean Peak Load Kg */
+            mean_peak_load_kg?: number | null;
             /** Reps */
             reps: components["schemas"]["RepOut"][];
         };
@@ -968,6 +980,8 @@ export interface components {
             mean_pitch_range_deg?: number | null;
             /** Mean Speed Peaks */
             mean_speed_peaks?: number | null;
+            /** Mean Peak Load Kg */
+            mean_peak_load_kg?: number | null;
         };
         /** Trace */
         Trace: {

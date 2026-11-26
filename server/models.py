@@ -85,6 +85,7 @@ class Rep(Base):
     roll_range_deg: Mapped[float | None] = mapped_column(Float)
     peak_speed_dps: Mapped[float | None] = mapped_column(Float)
     speed_peaks: Mapped[int | None] = mapped_column(Integer)
+    peak_load_kg: Mapped[float | None] = mapped_column(Float)  # max load cell reading in the rep window, game units (counts / LOAD_SCALE); null = no load cell
     quality: Mapped[float | None] = mapped_column(Float)  # null for a task's first rep (no reference)
     timing_score: Mapped[float | None] = mapped_column(Float)
     smoothness_score: Mapped[float | None] = mapped_column(Float)

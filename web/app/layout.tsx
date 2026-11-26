@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, Newsreader } from "next/font/google";
+import { Newsreader, Poppins } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-// Newsreader: editorial serif for page titles and big numerals. Hanken Grotesk: quiet UI sans.
+// Newsreader: editorial serif for page titles and big numerals. Poppins: geometric UI sans.
 const display = Newsreader({ variable: "--nf-display", subsets: ["latin"], axes: ["opsz"], display: "swap" });
-const ui = Hanken_Grotesk({ variable: "--nf-ui", subsets: ["latin"], display: "swap" });
+const ui = Poppins({ variable: "--nf-ui", subsets: ["latin"], weight: ["300", "400", "500", "600"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Arc", template: "%s | Arc" },

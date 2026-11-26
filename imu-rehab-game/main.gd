@@ -1063,21 +1063,26 @@ func _report_rep_to_server(record: Dictionary) -> void:
 	var http := HTTPRequest.new()
 	add_child(http)
 	http.request_completed.connect(_on_rep_reported.bind(http, record))
-	var body := JSON.stringify({
+	var payload := {
 		"device_id": IMU_DEVICE_ID,
 		"level": record["stage"],
 		"task": record["task"],
 		"rep": record["repetition"],
-		"duration_s": record["duration_sec"],
+		"duration_s": maxf(record["duration_sec"], 0.01),  # server needs > 0
 		"reps_required": required_reps,
-	})
+	}
+	if record["mode"] == "load":  # stored by the server (rep count + peak force), no IMU scoring or level decision
+		payload["mode"] = "load"
+		payload["peak_load_kg"] = maxf(record["peak_force"], 0.0)
+	var body := JSON.stringify(payload)
 	if http.request(server_event_url, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
 		http.queue_free()
 
 
 func _on_rep_reported(_result: int, code: int, _headers: PackedStringArray, reply: PackedByteArray, http: HTTPRequest, record: Dictionary) -> void:
 	if code == 200:
-		_apply_server_feedback(JSON.parse_string(reply.get_string_from_utf8()), record)
+		if record["mode"] != "load":  # load cell reps get no level decision from the server
+			_apply_server_feedback(JSON.parse_string(reply.get_string_from_utf8()), record)
 	elif code == 401 or code == 409:
 		push_warning("[game_event] server returned %d: no active session" % code)
 		_show_encouragement("Session not active: start a session in the portal.")
@@ -1170,10 +1175,7 @@ func _complete_current_repetition() -> void:
 	if game_mode == "load":
 		record["peak_force"] = peak_force
 	session_records.append(record)
-	if game_mode == "normal":  # the server's IMU quality/adaptation does not apply to load cell levels
-		_report_rep_to_server(record)
-	else:
-		_post_to_server("rep_done/" + IMU_DEVICE_ID)  # haptic buzz only
+	_report_rep_to_server(record)  # also buzzes the wristband; load cell reps are stored without IMU scoring (mode "load")
 
 	_show_encouragement("Repetition done. Well done.", true)
 

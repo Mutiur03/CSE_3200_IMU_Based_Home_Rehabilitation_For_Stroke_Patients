@@ -40,8 +40,19 @@ def dashboard():
 
 # Web build of the game (Godot export into server/web/), same origin: /play/
 WEB_DIR = Path(__file__).parent / "web"
+
+
+class _GameFiles(StaticFiles):
+    """no-cache = the browser revalidates (ETag/304) on every load, so a re-exported game is picked up at once instead of a stale cached build."""
+
+    def file_response(self, *args, **kwargs):
+        r = super().file_response(*args, **kwargs)
+        r.headers["Cache-Control"] = "no-cache"
+        return r
+
+
 if WEB_DIR.is_dir():
-    app.mount("/play", StaticFiles(directory=WEB_DIR, html=True), name="play")
+    app.mount("/play", _GameFiles(directory=WEB_DIR, html=True), name="play")
 
 if __name__ == "__main__":
     import uvicorn

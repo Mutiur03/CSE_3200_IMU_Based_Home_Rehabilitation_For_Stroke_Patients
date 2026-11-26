@@ -19,7 +19,7 @@
 #define SERVER_USE_TLS 0
 #endif
 
-#define DEVICE_ID   "imu_01"
+#define DEVICE_ID   "imu_03"
 #define BATCH_SIZE  10  // 100 Hz ODR / 10 = 10 frames/s
 #define QUEUE_DEPTH 100  // 10 s of buffering at 100 Hz / BATCH_SIZE 10 (~25 KB heap); a ~5 s outage overflowed 40
 

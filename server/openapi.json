@@ -1609,10 +1609,13 @@
      "task": {
       "type": "string",
       "maxLength": 100,
+      "pattern": "^[^\\x00]*$",
       "title": "Task"
      },
      "rep": {
       "type": "integer",
+      "maximum": 100000.0,
+      "minimum": 0.0,
       "title": "Rep"
      },
      "reps_required": {
@@ -1627,6 +1630,28 @@
       "maximum": 600.0,
       "exclusiveMinimum": 0.0,
       "title": "Duration S"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "normal",
+       "load"
+      ],
+      "title": "Mode",
+      "default": "normal"
+     },
+     "peak_load_kg": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1000.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peak Load Kg"
      }
     },
     "type": "object",
@@ -2271,6 +2296,17 @@
       ],
       "title": "Speed Peaks"
      },
+     "peak_load_kg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peak Load Kg"
+     },
      "quality": {
       "anyOf": [
        {
@@ -2485,6 +2521,17 @@
       ],
       "title": "Mean Speed Peaks"
      },
+     "mean_peak_load_kg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Peak Load Kg"
+     },
      "reps": {
       "items": {
        "$ref": "#/components/schemas/RepOut"
@@ -2626,6 +2673,17 @@
        }
       ],
       "title": "Mean Speed Peaks"
+     },
+     "mean_peak_load_kg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mean Peak Load Kg"
      }
     },
     "type": "object",

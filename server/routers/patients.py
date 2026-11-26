@@ -18,15 +18,15 @@ router = APIRouter(prefix="/api/patients", tags=["patients"])
 
 def _sessions(s: Db, pids: list[int]) -> dict[int, list[SessionOut]]:
     """Per-patient sessions in time order with per-session rep means; one query for all patients."""
-    q = (select(Session, func.avg(Rep.duration_s), func.avg(Rep.roll_range_deg), func.avg(Rep.pitch_range_deg), func.avg(Rep.speed_peaks))
+    q = (select(Session, func.avg(Rep.duration_s), func.avg(Rep.roll_range_deg), func.avg(Rep.pitch_range_deg), func.avg(Rep.speed_peaks), func.avg(Rep.peak_load_kg))
          .outerjoin(Rep, Rep.session_id == Session.id).where(Session.patient_id.in_(pids)).group_by(Session.id)
          .order_by(Session.started_at, Session.id))
     out = defaultdict(list)
-    for ses, dur, roll, pitch, sp in s.execute(q):
+    for ses, dur, roll, pitch, sp, load in s.execute(q):
         out[ses.patient_id].append(SessionOut(
             id=ses.id, patient_id=ses.patient_id, device_id=ses.device_id, started_at=ses.started_at, ended_at=ses.ended_at,
             n_reps=ses.n_reps, mean_quality=ses.mean_quality, dropped_packets=ses.dropped_packets, sample_rate_hz=ses.sample_rate_hz,
-            mean_duration_s=dur, mean_roll_range_deg=roll, mean_pitch_range_deg=pitch, mean_speed_peaks=sp))
+            mean_duration_s=dur, mean_roll_range_deg=roll, mean_pitch_range_deg=pitch, mean_speed_peaks=sp, mean_peak_load_kg=load))
     return out
 
 

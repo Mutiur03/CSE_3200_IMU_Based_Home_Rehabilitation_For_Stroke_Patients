@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     jwt_ttl_hours: int = 12
     cookie_secure: bool = False  # True behind HTTPS
     cookie_name: str = "session"
+    load_scale: float = 80000.0  # LOAD_SCALE: load cell counts per game unit (kg once calibrated); negative if counts fall when squeezed
     imu_reload: bool = False  # IMU_RELOAD=1 in .env: auto-restart on code change (drops the ESP32 link; the wristband reconnects by itself)
 
 

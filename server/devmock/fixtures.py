@@ -27,6 +27,7 @@ def _session(sid: int, pid: int, n: int, k: float) -> SessionDetail:
             duration_s=round(9 - 2.5 * k + math.sin(i), 2),
             pitch_range_deg=round(18 + 6 * k + i % 3, 1), roll_range_deg=round(28 + 13 * k + i % 4, 1),
             peak_speed_dps=round(60 + 25 * k + 3 * i, 1), speed_peaks=max(1, round(5 - 2 * k + (i % 2))),
+            peak_load_kg=round(1.2 + 0.9 * k + 0.1 * (i % 3), 2),
             quality=None if i % 3 == 0 else round(62 + 22 * k + 3 * math.sin(i), 1),
             timing_score=None if i % 3 == 0 else round(65 + 20 * k, 1),
             smoothness_score=None if i % 3 == 0 else round(60 + 24 * k, 1)))
@@ -36,7 +37,8 @@ def _session(sid: int, pid: int, n: int, k: float) -> SessionDetail:
         id=sid, patient_id=pid, device_id=DEVICES[pid], started_at=start, ended_at=start + timedelta(minutes=20),
         n_reps=len(reps), mean_quality=m(q), dropped_packets=n % 3, sample_rate_hz=99.8,
         mean_duration_s=m([r.duration_s for r in reps]), mean_roll_range_deg=m([r.roll_range_deg for r in reps]),
-        mean_pitch_range_deg=m([r.pitch_range_deg for r in reps]), mean_speed_peaks=m([r.speed_peaks for r in reps]), reps=reps)
+        mean_pitch_range_deg=m([r.pitch_range_deg for r in reps]), mean_speed_peaks=m([r.speed_peaks for r in reps]),
+        mean_peak_load_kg=m([r.peak_load_kg for r in reps]), reps=reps)
 
 
 SESSIONS: dict[int, SessionDetail] = {}
